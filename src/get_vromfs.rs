@@ -63,6 +63,8 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 
 		state.vromf_cache.write().await.elems.push(latest, dec);
 		info!("Pushed {latest} to cache");
+	} else {
+		info!("No newer version found");
 	}
 
 }
