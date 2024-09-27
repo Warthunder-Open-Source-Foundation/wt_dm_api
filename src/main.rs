@@ -13,7 +13,7 @@ use octocrab::Octocrab;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, RwLock};
 use wt_version::Version;
-use crate::get_vromfs::{get_latest, VromfCache};
+use crate::get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache};
 
 #[derive(Default)]
 pub struct AppState {
@@ -25,6 +25,7 @@ pub struct AppState {
 async fn main() {
     // initialize tracing
     tracing_subscriber::fmt::init();
+    let state= Arc::new(AppState::default());
 
     // build our application with a route
     let app = Router::new()
@@ -33,10 +34,14 @@ async fn main() {
         .route("/", get(root))
         // `POST /users` goes to `create_user`
         .route("/users", post(create_user))
-        .with_state(Arc::new(AppState::default()));
+        .route("/vromf/latest", get(print_latest_version))
+        .with_state(state.clone());
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+
+    update_cache_loop(state);
+
     axum::serve(listener, app).await.unwrap();
 }
 

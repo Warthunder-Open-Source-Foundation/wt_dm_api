@@ -4,18 +4,19 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use axum::extract::State;
+use base64::Engine;
+use base64::engine::GeneralPurpose;
+use base64::prelude::BASE64_STANDARD;
 use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
+use tokio::time::sleep;
 use tracing::info;
 use wt_version::Version;
 use crate::AppState;
 
-const FETCH_TIMEOUT: Duration = Duration::from_secs(60);
-
 pub struct VromfCache {
 	elems: LruCache<Version, Vec<u8>>,
-	last_checked: Instant,
 	latest_known_version: Version,
 }
 
@@ -23,7 +24,6 @@ impl Default for VromfCache {
 	fn default() -> Self {
 		Self {
 			elems: LruCache::new(NonZeroUsize::new(10).unwrap()),
-			last_checked: Instant::now().sub(FETCH_TIMEOUT),
 			latest_known_version: Version::from_u64(0),
 		}
 	}
@@ -31,17 +31,12 @@ impl Default for VromfCache {
 
 
 pub async fn get_latest(State(state): State<Arc<AppState>>) -> Vec<u8> {
-	refresh_cache(state.clone()).await;
-
 	let mut r = state.vromf_cache.write().await;
 	let v = r.latest_known_version.clone();
 	r.elems.get(&v).cloned().unwrap()
 }
 
 pub async fn refresh_cache(state: Arc<AppState>) {
-	if state.vromf_cache.read().await.last_checked.elapsed() < FETCH_TIMEOUT {
-		return;
-	}
 	info!("Refreshing vromf cache");
 
 	let octo = state.octocrab.lock().await;
@@ -64,10 +59,23 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 			.send()
 			.await.unwrap();
 
-		let dec = base64::decode(file.items.first().unwrap().clone().content.unwrap()).unwrap();
+		let dec = BASE64_STANDARD.decode(file.items.first().unwrap().clone().content.unwrap().as_bytes()).unwrap();
 
-		state.vromf_cache.write().await.elems.push(latest, dec).unwrap();
+		state.vromf_cache.write().await.elems.push(latest, dec);
 		info!("Pushed {latest} to cache");
 	}
 
+}
+
+pub fn update_cache_loop(state: Arc<AppState>) {
+	tokio::spawn(async move {
+		loop {
+			refresh_cache(state.clone()).await;
+			sleep(Duration::from_secs(120)).await;
+		}
+	});
+}
+
+pub async fn print_latest_version(State(state): State<Arc<AppState>>) -> String {
+	state.vromf_cache.read().await.latest_known_version.to_string()
 }
