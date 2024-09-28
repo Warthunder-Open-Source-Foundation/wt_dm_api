@@ -1,4 +1,4 @@
-# /files
+# /files/\*path
 - Followed by full path to file
 - URL params:
 	- Version string, defaults to latest
@@ -7,4 +7,7 @@
 
 # /metadata/latest
 - Returns latest version as string
+
+# /latest/\*vromf
+- Returns specific raw vromf
 

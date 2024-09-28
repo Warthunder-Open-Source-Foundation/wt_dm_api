@@ -12,7 +12,7 @@ use axum::{
 use octocrab::Octocrab;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, RwLock};
-
+use crate::files::get_files;
 use crate::get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache};
 
 #[derive(Default)]
@@ -31,12 +31,13 @@ async fn main() {
 
 	// build our application with a route
 	let app = Router::new()
-		.route("/latest", get(get_latest))
+		.route("/latest/*vromf", get(get_latest))
 		// `GET /` goes to `root`
 		.route("/", get(root))
 		// `POST /users` goes to `create_user`
 		.route("/users", post(create_user))
 		.route("/metadata/latest", get(print_latest_version))
+		.route("/files/*path", get(get_files))
 		.with_state(state.clone());
 
 	// run our app with hyper, listening globally on port 3000

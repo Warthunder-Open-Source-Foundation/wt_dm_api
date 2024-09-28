@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use axum::extract::{Path, State};
 use wt_blk::vromf::BlkOutputFormat;
 use wt_version::Version;
 
@@ -24,4 +24,10 @@ impl FileRequest {
 			unpack_format: None,
 		}
 	}
+}
+
+pub async fn get_files(State(state): State<Arc<AppState>>, Path(path): Path<String>) -> String {
+	dbg!(&path);
+
+	"".to_string()
 }
