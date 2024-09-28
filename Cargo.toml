@@ -16,3 +16,6 @@ reqwest = "0.12.7"
 serde_json = "1.0.128"
 tracing = "0.1.40"
 base64 = "0.22.1"
+color-eyre = "0.6.3"
+
+wt_blk = {git = "https://github.com/Warthunder-Open-Source-Foundation/wt_blk.git", version = "0.2.3"}

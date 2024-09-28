@@ -1,15 +1,11 @@
 use std::num::NonZeroUsize;
-use std::ops::Sub;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration};
 use axum::extract::State;
 use base64::Engine;
-use base64::engine::GeneralPurpose;
 use base64::prelude::BASE64_STANDARD;
 use lru::LruCache;
-use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
 use tokio::time::sleep;
 use tracing::info;
 use wt_version::Version;
@@ -17,7 +13,7 @@ use crate::AppState;
 
 pub struct VromfCache {
 	elems: LruCache<Version, Vec<u8>>,
-	latest_known_version: Version,
+	pub latest_known_version: Version,
 }
 
 impl Default for VromfCache {
