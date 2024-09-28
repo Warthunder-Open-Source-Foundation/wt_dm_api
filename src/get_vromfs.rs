@@ -1,9 +1,16 @@
-use std::{num::NonZeroUsize, str::FromStr, sync::Arc, time::Duration};
-use std::collections::HashMap;
-use std::sync::LazyLock;
-use axum::extract::{Path, State};
-use axum::Json;
-use axum::response::IntoResponse;
+use std::{
+	collections::HashMap,
+	num::NonZeroUsize,
+	str::FromStr,
+	sync::{Arc, LazyLock},
+	time::Duration,
+};
+
+use axum::{
+	extract::{Path, State},
+	response::IntoResponse,
+	Json,
+};
 use base64::{prelude::BASE64_STANDARD, Engine};
 use http::StatusCode;
 use lru::LruCache;
@@ -14,9 +21,16 @@ use wt_version::Version;
 
 use crate::AppState;
 
-static VROMF_NAMES: [&'static str; 8] = ["aces", "char", "game", "gui", "lang", "mis", "regional", "wwdata"];
+static VROMF_NAMES: [&'static str; 8] = [
+	"aces", "char", "game", "gui", "lang", "mis", "regional", "wwdata",
+];
 static VROMFS: LazyLock<[Box<str>; 8]> = LazyLock::new(|| {
-	VROMF_NAMES.into_iter().map(|e|format!("{e}.vromfs.bin").into_boxed_str()).collect::<Vec<_>>().try_into().unwrap()
+	VROMF_NAMES
+		.into_iter()
+		.map(|e| format!("{e}.vromfs.bin").into_boxed_str())
+		.collect::<Vec<_>>()
+		.try_into()
+		.unwrap()
 });
 
 pub struct VromfCache {
@@ -33,23 +47,18 @@ impl Default for VromfCache {
 	}
 }
 
-pub async fn get_latest(State(state): State<Arc<AppState>>, Path(path): Path<String>) -> impl IntoResponse {
+pub async fn get_latest(
+	State(state): State<Arc<AppState>>,
+	Path(path): Path<String>,
+) -> impl IntoResponse {
 	let mut r = state.vromf_cache.write().await;
 	let v = r.latest_known_version.clone();
 	match r.elems.get(&v) {
-		None => {
-			(StatusCode::NOT_FOUND, format!("Version {v} is invalid")).into_response()
-		}
-		Some(c) => {
-			match c.get(&path) {
-				None => {
-					(StatusCode::NOT_FOUND, format!("Path {path} not found")).into_response()
-				}
-				Some(e) => {
-					(StatusCode::OK, e.clone()).into_response()
-				}
-			}
-		}
+		None => (StatusCode::NOT_FOUND, format!("Version {v} is invalid")).into_response(),
+		Some(c) => match c.get(&path) {
+			None => (StatusCode::NOT_FOUND, format!("Path {path} not found")).into_response(),
+			Some(e) => (StatusCode::OK, e.clone()).into_response(),
+		},
 	}
 }
 
@@ -71,22 +80,22 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 
 		let mut reqs = HashMap::new();
 		for VROMF in VROMFS.iter() {
-				let file = octo
-					.repos("gszabi99", "War-Thunder-Datamine")
-					.get_content()
-					.path(&format!("raw/{VROMF}"))
-					.r#ref(&res.items.first().unwrap().sha) // Specify the commit SHA
-					.send()
-					.await
-					.unwrap();
+			let file = octo
+				.repos("gszabi99", "War-Thunder-Datamine")
+				.get_content()
+				.path(&format!("raw/{VROMF}"))
+				.r#ref(&res.items.first().unwrap().sha) // Specify the commit SHA
+				.send()
+				.await
+				.unwrap();
 
-				let dec = reqwest::get(file.items.first().unwrap().clone().download_url.unwrap())
-					.await
-					.unwrap()
-					.bytes()
-					.await
-					.unwrap()
-					.to_vec();
+			let dec = reqwest::get(file.items.first().unwrap().clone().download_url.unwrap())
+				.await
+				.unwrap()
+				.bytes()
+				.await
+				.unwrap()
+				.to_vec();
 			dbg!(VROMF);
 			reqs.insert(VROMF.to_string(), dec);
 		}
