@@ -1,6 +1,8 @@
 use std::sync::Arc;
+
 use wt_blk::vromf::BlkOutputFormat;
 use wt_version::Version;
+
 use crate::AppState;
 
 pub struct FileRequest {
@@ -14,13 +16,11 @@ pub struct FileRequest {
 	unpack_format: Option<BlkOutputFormat>,
 }
 
-
-
 impl FileRequest {
 	pub async fn default(state: Arc<AppState>) -> Self {
 		Self {
-			version: state.vromf_cache.read().await.latest_known_version,
-			path: "/".to_string(),
+			version:       state.vromf_cache.read().await.latest_known_version,
+			path:          "/".to_string(),
 			unpack_format: None,
 		}
 	}
