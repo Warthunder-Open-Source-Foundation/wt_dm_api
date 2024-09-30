@@ -24,6 +24,7 @@ impl Default for UnpackedVromfs {
 	}
 }
 
+#[derive(Debug)]
 pub struct FileRequest {
 	/// Defaults to latest
 	version: Version,
@@ -102,6 +103,7 @@ pub async fn get_files(
 	dbg!(&path);
 
 	let req = FileRequest::from_path_and_query(state, &path, &params).await?;
+	dbg!(req);
 
 	Ok("".to_string())
 }
