@@ -22,7 +22,7 @@ use crate::{
 pub struct AppState {
 	vromf_cache:     RwLock<VromfCache>,
 	octocrab:        Mutex<Octocrab>,
-	unpacked_vromfs: RwLock<UnpackedVromfs>,
+	unpacked_vromfs: UnpackedVromfs,
 }
 
 #[tokio::main]

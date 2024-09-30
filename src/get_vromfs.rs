@@ -38,7 +38,7 @@ pub static VROMFS: LazyLock<[&'static str; 8]> = LazyLock::new(|| {
 });
 
 pub struct VromfCache {
-	elems:                    LruCache<Version, HashMap<String, Vec<u8>>>,
+	pub elems:                LruCache<Version, HashMap<String, Vec<u8>>>,
 	pub latest_known_version: Version,
 }
 
