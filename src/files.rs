@@ -76,7 +76,12 @@ impl FileRequest {
 			Some(f) => match f.to_ascii_lowercase().as_str() {
 				"blk" => BlkOutputFormat::BlkText,
 				"json" => BlkOutputFormat::Json,
-				_ => return Err((StatusCode::BAD_REQUEST, format!("unknown output format: {f}"))),
+				_ => {
+					return Err((
+						StatusCode::BAD_REQUEST,
+						format!("unknown output format: {f}"),
+					))
+				},
 			},
 		};
 
