@@ -14,14 +14,15 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-	files::get_files,
+	files::{get_files, UnpackedVromfs},
 	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},
 };
 
 #[derive(Default)]
 pub struct AppState {
-	vromf_cache: RwLock<VromfCache>,
-	octocrab:    Mutex<Octocrab>,
+	vromf_cache:     RwLock<VromfCache>,
+	octocrab:        Mutex<Octocrab>,
+	unpacked_vromfs: RwLock<UnpackedVromfs>,
 }
 
 #[tokio::main]

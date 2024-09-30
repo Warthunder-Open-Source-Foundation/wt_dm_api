@@ -24,10 +24,14 @@ use crate::AppState;
 static VROMF_NAMES: [&'static str; 8] = [
 	"aces", "char", "game", "gui", "lang", "mis", "regional", "wwdata",
 ];
-static VROMFS: LazyLock<[Box<str>; 8]> = LazyLock::new(|| {
+pub static VROMFS: LazyLock<[&'static str; 8]> = LazyLock::new(|| {
 	VROMF_NAMES
 		.into_iter()
-		.map(|e| format!("{e}.vromfs.bin").into_boxed_str())
+		.map(|e| {
+			let b = format!("{e}.vromfs.bin").into_boxed_str();
+			let l: &'static str = Box::leak(b);
+			l
+		})
 		.collect::<Vec<_>>()
 		.try_into()
 		.unwrap()
