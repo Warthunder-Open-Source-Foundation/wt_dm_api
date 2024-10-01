@@ -12,6 +12,7 @@ use http::StatusCode;
 use serde::Deserialize;
 use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker};
 use wt_version::Version;
+use crate::eyre_error_translation::EyreToApiError;
 
 use crate::{get_vromfs::VROMFS, AppState};
 
@@ -24,7 +25,7 @@ impl UnpackedVromfs {
 		state: Arc<AppState>,
 		req: FileRequest,
 	) -> Result<Vec<u8>, (StatusCode, String)> {
-		Self::refresh_cache(&state.unpacked_vromfs, state.clone(), &req).await;
+		Self::refresh_cache(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
 		let unpacker = state
@@ -40,7 +41,7 @@ impl UnpackedVromfs {
 		}
 	}
 
-	pub async fn refresh_cache(&self, state: Arc<AppState>, req: &FileRequest) {
+	pub async fn refresh_cache(&self, state: Arc<AppState>, req: &FileRequest) -> Result<(), (StatusCode, String)> {
 		for vromf in VROMFS.iter() {
 			// TODO: Replace expects
 			let buf = state
@@ -58,9 +59,10 @@ impl UnpackedVromfs {
 				VromfUnpacker::from_file(
 					&File::from_raw(PathBuf::from_str(vromf).unwrap(), buf),
 					true,
-				).unwrap(),
+				).convert_err()?,
 			);
 		}
+		Ok(())
 	}
 }
 

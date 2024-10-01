@@ -1,5 +1,6 @@
 mod files;
 mod get_vromfs;
+mod eyre_error_translation;
 
 use std::sync::Arc;
 
