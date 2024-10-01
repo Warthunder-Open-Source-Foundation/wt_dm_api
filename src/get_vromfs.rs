@@ -14,31 +14,19 @@ use axum::{
 use base64::{prelude::BASE64_STANDARD, Engine};
 use http::StatusCode;
 use lru::LruCache;
+use strum::VariantArray;
 use tokio::time::sleep;
 use tracing::info;
 use tracing_subscriber::fmt::format;
 use wt_version::Version;
 
 use crate::AppState;
-
-static VROMF_NAMES: [&'static str; 8] = [
-	"aces", "char", "game", "gui", "lang", "mis", "regional", "wwdata",
-];
-pub static VROMFS: LazyLock<[&'static str; 8]> = LazyLock::new(|| {
-	VROMF_NAMES
-		.into_iter()
-		.map(|e| {
-			let b = format!("{e}.vromfs.bin").into_boxed_str();
-			let l: &'static str = Box::leak(b);
-			l
-		})
-		.collect::<Vec<_>>()
-		.try_into()
-		.unwrap()
-});
+use crate::error::ApiError;
+use crate::eyre_error_translation::EyreToApiError;
+use crate::vromf_enum::VromfType;
 
 pub struct VromfCache {
-	pub elems:                LruCache<Version, HashMap<String, Vec<u8>>>,
+	pub elems:                LruCache<Version, HashMap<VromfType, Vec<u8>>>,
 	pub latest_known_version: Version,
 }
 
@@ -54,14 +42,14 @@ impl Default for VromfCache {
 pub async fn get_latest(
 	State(state): State<Arc<AppState>>,
 	Path(path): Path<String>,
-) -> impl IntoResponse {
+) -> ApiError<Vec<u8>> {
 	let mut r = state.vromf_cache.write().await;
 	let v = r.latest_known_version.clone();
 	match r.elems.get(&v) {
-		None => (StatusCode::NOT_FOUND, format!("Version {v} is invalid")).into_response(),
-		Some(c) => match c.get(&path) {
-			None => (StatusCode::NOT_FOUND, format!("Path {path} not found")).into_response(),
-			Some(e) => (StatusCode::OK, e.clone()).into_response(),
+		None => Err((StatusCode::NOT_FOUND, format!("Version {v} is invalid"))),
+		Some(c) => match c.get(&VromfType::from_str(&path).convert_err()?) {
+			None => Err((StatusCode::NOT_FOUND, format!("Path {path} not found"))),
+			Some(e) => Ok(e.clone()),
 		},
 	}
 }
@@ -83,7 +71,7 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 		state.vromf_cache.write().await.latest_known_version = latest;
 
 		let mut reqs = HashMap::new();
-		for vromf in VROMFS.iter() {
+		for vromf in VromfType::VARIANTS {
 			let file = octo
 				.repos("gszabi99", "War-Thunder-Datamine")
 				.get_content()
@@ -100,7 +88,7 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 				.await
 				.unwrap()
 				.to_vec();
-			reqs.insert(vromf.to_string(), dec);
+			reqs.insert(*vromf, dec);
 		}
 		state.vromf_cache.write().await.elems.push(latest, reqs);
 		info!("Pushed {latest} to cache");

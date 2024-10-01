@@ -10,14 +10,16 @@ use axum::{
 use dashmap::DashMap;
 use http::StatusCode;
 use serde::Deserialize;
+use strum::VariantArray;
 use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker};
 use wt_version::Version;
 use crate::eyre_error_translation::EyreToApiError;
 
-use crate::{get_vromfs::VROMFS, AppState};
+use crate::{AppState};
+use crate::vromf_enum::VromfType;
 
 pub struct UnpackedVromfs {
-	unpackers: DashMap<(Version, String), VromfUnpacker>,
+	unpackers: DashMap<(Version, VromfType), VromfUnpacker>,
 }
 
 impl UnpackedVromfs {
@@ -42,7 +44,7 @@ impl UnpackedVromfs {
 	}
 
 	pub async fn refresh_cache(&self, state: Arc<AppState>, req: &FileRequest) -> Result<(), (StatusCode, String)> {
-		for vromf in VROMFS.iter() {
+		for vromf in VromfType::VARIANTS {
 			// TODO: Replace expects
 			let buf = state
 				.vromf_cache
@@ -51,13 +53,13 @@ impl UnpackedVromfs {
 				.elems
 				.get(&req.version)
 				.expect("vromfs should have latest version")
-				.get(*vromf)
+				.get(vromf)
 				.expect("vromfs should be in map")
 				.to_owned();
 			state.unpacked_vromfs.unpackers.insert(
-				(req.version, vromf.to_string()),
+				(req.version, *vromf),
 				VromfUnpacker::from_file(
-					&File::from_raw(PathBuf::from_str(vromf).unwrap(), buf),
+					&File::from_raw(vromf.into(), buf),
 					true,
 				).convert_err()?,
 			);
@@ -89,7 +91,7 @@ pub struct FileRequest {
 	single_file: bool,
 
 	/// Which vromf to get from
-	vromf: String,
+	vromf: VromfType,
 }
 
 #[derive(Debug, Deserialize)]
@@ -111,13 +113,13 @@ impl FileRequest {
 			match path_split {
 				// Means the entire vromf is requested, as long as its valid
 				None => {
-					if VROMFS.contains(&path) {
-						(path.to_owned(), "/".to_owned())
+					if let Ok(v) = VromfType::from_str(path) {
+						(v, "/".to_owned())
 					} else {
 						return Err((StatusCode::NOT_FOUND, format!("Vromf not found: {}", path)));
 					}
 				},
-				Some(e) => (e.0.to_owned(), e.1.to_owned()),
+				Some(e) => (VromfType::from_str(e.0).convert_err()?, e.1.to_owned()),
 			}
 		};
 		let latest = state.vromf_cache.read().await.latest_known_version;

@@ -1,6 +1,8 @@
 mod files;
 mod get_vromfs;
 mod eyre_error_translation;
+mod vromf_enum;
+mod error;
 
 use std::sync::Arc;
 
