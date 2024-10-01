@@ -15,6 +15,7 @@ use base64::{prelude::BASE64_STANDARD, Engine};
 use http::StatusCode;
 use lru::LruCache;
 use strum::VariantArray;
+use tokio::sync::oneshot::Sender;
 use tokio::time::sleep;
 use tracing::info;
 use tracing_subscriber::fmt::format;
@@ -98,10 +99,15 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 	Ok(())
 }
 
-pub fn update_cache_loop(state: Arc<AppState>) {
+pub fn update_cache_loop(state: Arc<AppState>, sender: Sender<()>) {
 	tokio::spawn(async move {
+		let mut s = Some(sender);
 		loop {
 			refresh_cache(state.clone()).await.unwrap();
+			if let Some(s) = s.take() {
+				s.send(()).unwrap();
+			}
+
 			sleep(Duration::from_secs(120)).await;
 		}
 	});

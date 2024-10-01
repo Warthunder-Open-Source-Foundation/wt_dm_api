@@ -22,13 +22,13 @@ pub enum VromfType {
 
 impl From<VromfType> for PathBuf {
 	fn from(value: VromfType) -> Self {
-		value.into()
+		Into::<&Path>::into(value).to_path_buf()
 	}
 }
 
 impl From<&VromfType> for PathBuf {
 	fn from(value: &VromfType) -> Self {
-		value.into()
+		Into::<&Path>::into(value).to_path_buf()
 	}
 }
 

@@ -7,6 +7,8 @@ use std::{
 use axum::{
 	extract::{Path, Query, State},
 };
+use axum::body::Body;
+use axum::response::{IntoResponse, Response};
 use dashmap::DashMap;
 use http::StatusCode;
 use serde::Deserialize;
@@ -61,7 +63,7 @@ impl UnpackedVromfs {
 				(req.version, *vromf),
 				VromfUnpacker::from_file(
 					&File::from_raw(vromf.into(), buf),
-					true,
+					false,
 				).convert_err()?,
 			);
 		}
@@ -158,9 +160,20 @@ pub async fn get_files(
 	State(state): State<Arc<AppState>>,
 	Path(path): Path<String>,
 	Query(params): Query<Params>,
-) -> ApiError<Vec<u8>> {
+) -> ApiError<impl IntoResponse> {
 	let req = FileRequest::from_path_and_query(state.clone(), &path, &params).await?;
-	let res = UnpackedVromfs::unpack_one(state.clone(), dbg!(req)).await;
 
-	Ok(res?)
+	let content_type = if req.unpack_format.is_some() && req.path.ends_with("blk") {
+		"text/plain"
+	} else {
+		"application/octet-stream"
+	};
+
+	let res = UnpackedVromfs::unpack_one(state.clone(), dbg!(req)).await?;
+
+	Ok(Response::builder()
+		.header("Content-Type", dbg!(content_type))
+		.body(Body::from(res))
+		.unwrap()
+	)
 }
