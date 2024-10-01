@@ -54,7 +54,7 @@ pub async fn get_latest(
 	}
 }
 
-pub async fn refresh_cache(state: Arc<AppState>) {
+pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 	info!("Refreshing vromf cache");
 
 	let octo = state.octocrab.lock().await;
@@ -79,7 +79,7 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 				.r#ref(&res.items.first().unwrap().sha) // Specify the commit SHA
 				.send()
 				.await
-				.unwrap();
+				.convert_err()?;
 
 			let dec = reqwest::get(file.items.first().unwrap().clone().download_url.unwrap())
 				.await
@@ -95,12 +95,13 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 	} else {
 		info!("No newer version found");
 	}
+	Ok(())
 }
 
 pub fn update_cache_loop(state: Arc<AppState>) {
 	tokio::spawn(async move {
 		loop {
-			refresh_cache(state.clone()).await;
+			refresh_cache(state.clone()).await.unwrap();
 			sleep(Duration::from_secs(120)).await;
 		}
 	});

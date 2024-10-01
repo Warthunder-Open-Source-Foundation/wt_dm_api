@@ -16,6 +16,7 @@ use wt_version::Version;
 use crate::eyre_error_translation::EyreToApiError;
 
 use crate::{AppState};
+use crate::error::ApiError;
 use crate::vromf_enum::VromfType;
 
 pub struct UnpackedVromfs {
@@ -26,7 +27,7 @@ impl UnpackedVromfs {
 	pub async fn unpack_one(
 		state: Arc<AppState>,
 		req: FileRequest,
-	) -> Result<Vec<u8>, (StatusCode, String)> {
+	) -> ApiError<Vec<u8>> {
 		Self::refresh_cache(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
@@ -157,7 +158,7 @@ pub async fn get_files(
 	State(state): State<Arc<AppState>>,
 	Path(path): Path<String>,
 	Query(params): Query<Params>,
-) -> Result<Vec<u8>, (StatusCode, String)> {
+) -> ApiError<Vec<u8>> {
 	let req = FileRequest::from_path_and_query(state.clone(), &path, &params).await?;
 	let res = UnpackedVromfs::unpack_one(state.clone(), dbg!(req)).await;
 
