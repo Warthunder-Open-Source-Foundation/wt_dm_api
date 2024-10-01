@@ -83,11 +83,11 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 		state.vromf_cache.write().await.latest_known_version = latest;
 
 		let mut reqs = HashMap::new();
-		for VROMF in VROMFS.iter() {
+		for vromf in VROMFS.iter() {
 			let file = octo
 				.repos("gszabi99", "War-Thunder-Datamine")
 				.get_content()
-				.path(&format!("raw/{VROMF}"))
+				.path(&format!("raw/{vromf}"))
 				.r#ref(&res.items.first().unwrap().sha) // Specify the commit SHA
 				.send()
 				.await
@@ -100,8 +100,7 @@ pub async fn refresh_cache(state: Arc<AppState>) {
 				.await
 				.unwrap()
 				.to_vec();
-			dbg!(VROMF);
-			reqs.insert(VROMF.to_string(), dec);
+			reqs.insert(vromf.to_string(), dec);
 		}
 		state.vromf_cache.write().await.elems.push(latest, reqs);
 		info!("Pushed {latest} to cache");

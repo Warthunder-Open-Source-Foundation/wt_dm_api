@@ -1,5 +1,4 @@
 use std::{
-	collections::HashMap,
 	path::{Path as StdPath, PathBuf},
 	str::FromStr,
 	sync::Arc,
@@ -7,20 +6,17 @@ use std::{
 
 use axum::{
 	extract::{Path, Query, State},
-	response::IntoResponse,
 };
-use color_eyre::Report;
 use dashmap::DashMap;
 use http::StatusCode;
 use serde::Deserialize;
-use serde_json::to_string;
 use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker};
 use wt_version::Version;
 
 use crate::{get_vromfs::VROMFS, AppState};
 
 pub struct UnpackedVromfs {
-	unpackers: DashMap<String, VromfUnpacker>,
+	unpackers: DashMap<(Version, String), VromfUnpacker>,
 }
 
 impl UnpackedVromfs {
@@ -34,7 +30,7 @@ impl UnpackedVromfs {
 		let unpacker = state
 			.unpacked_vromfs
 			.unpackers
-			.get_mut(&vromf)
+			.get_mut(&(req.version, vromf))
 			.expect("Vromfs should be validated and present");
 		let res = unpacker.unpack_one(StdPath::new(&req.path), req.unpack_format, true);
 
@@ -58,7 +54,7 @@ impl UnpackedVromfs {
 				.expect("vromfs should be in map")
 				.to_owned();
 			state.unpacked_vromfs.unpackers.insert(
-				vromf.to_string(),
+				(req.version, vromf.to_string()),
 				VromfUnpacker::from_file(
 					&File::from_raw(PathBuf::from_str(vromf).unwrap(), buf),
 					true,
