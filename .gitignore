@@ -2,3 +2,4 @@
 dist
 .dioxus
 .env
+cache

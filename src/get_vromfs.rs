@@ -1,10 +1,4 @@
-use std::{
-	collections::HashMap,
-	num::NonZeroUsize,
-	str::FromStr,
-	sync::{Arc, LazyLock},
-	time::Duration,
-};
+use std::{collections::HashMap, fs, num::NonZeroUsize, str::FromStr, sync::{Arc, LazyLock}, time::Duration};
 
 use axum::{
 	extract::{Path, State},
@@ -71,6 +65,24 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 		info!("Found newer version: {latest}");
 		state.vromf_cache.write().await.latest_known_version = latest;
 
+		#[cfg(feature = "dev-cache")]
+		{
+			let mut cache_intact = true;
+			let mut files = vec![];
+			for vromf in VromfType::VARIANTS {
+				if let Ok(f) = fs::read(format!("./cache/{vromf}.{latest}")) {
+					files.push((*vromf,f));
+				} else {
+					cache_intact = false;
+				}
+			}
+			if cache_intact {
+				info!("Got vromfs from disk");
+				state.vromf_cache.write().await.elems.push(latest, HashMap::from_iter(files.into_iter()));
+				return Ok(());
+			}
+		}
+
 		let mut reqs = HashMap::new();
 		for vromf in VromfType::VARIANTS {
 			let file = octo
@@ -92,6 +104,16 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 			reqs.insert(*vromf, dec);
 		}
 		state.vromf_cache.write().await.elems.push(latest, reqs);
+
+		#[cfg(feature = "dev-cache")]
+		{
+			info!("Wrote cache to disk");
+			fs::create_dir("./cache").unwrap();
+			for (vromf, b) in state.vromf_cache.write().await.elems.get(&latest).unwrap().iter() {
+				fs::write(format!("./cache/{vromf}.{latest}"), b).unwrap()
+			}
+		}
+
 		info!("Pushed {latest} to cache");
 	} else {
 		info!("No newer version found");

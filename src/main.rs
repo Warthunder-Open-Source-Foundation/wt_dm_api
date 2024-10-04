@@ -54,6 +54,6 @@ async fn main() {
 
 
 	wait_ready.wait_ready().await;
-	info!("Wait ready completed");
+	info!("Wait ready completed. Starting server...");
 	axum::serve(listener, app).await.unwrap();
 }
