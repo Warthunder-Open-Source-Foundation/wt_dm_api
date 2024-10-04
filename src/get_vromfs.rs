@@ -251,7 +251,7 @@ async fn find_version_sha(
 	}
 	Err((
 		StatusCode::BAD_REQUEST,
-		"Exceeded 500 searched versions into history.".to_string(),
+		"Exceeded 60 searched versions into history.".to_string(),
 	))
 }
 
