@@ -19,6 +19,7 @@ use crate::{
 pub struct VromfCache {
 	elems:                LruCache<Version, HashMap<VromfType, Vec<u8>>>,
 	latest_known_version: Version,
+	commit_pages:         HashMap<Version, String>,
 }
 
 impl Default for VromfCache {
@@ -26,6 +27,7 @@ impl Default for VromfCache {
 		Self {
 			elems:                LruCache::new(NonZeroUsize::new(100).unwrap()),
 			latest_known_version: Version::from_u64(0),
+			commit_pages:         Default::default(),
 		}
 	}
 }
@@ -105,7 +107,7 @@ pub async fn refresh_cache(state: Arc<AppState>, mut version: Option<Version>) -
 
 	let mut octo = state.octocrab.lock().await;
 	let get_latest = version.is_none();
-	let sha = find_version_sha(&mut version, &mut octo).await?;
+	let sha = find_version_sha(state.clone(), &mut version, &mut octo).await?;
 	let version = version.expect("version sha should have set version");
 	if get_latest {
 		if version > state.vromf_cache.read().await.latest_known_version {
@@ -190,29 +192,44 @@ async fn get_vromfs(sha: &str, octo: &mut Octocrab) -> ApiError<HashMap<VromfTyp
 
 		let dec = reqwest::get(file.items.first().unwrap().clone().download_url.unwrap())
 			.await
-			.unwrap()
+			.convert_err()?
 			.bytes()
 			.await
-			.unwrap()
+			.convert_err()?
 			.to_vec();
 		reqs.insert(*vromf, dec);
 	}
 	Ok(reqs)
 }
 
-async fn find_version_sha(v: &mut Option<Version>, octo: &mut Octocrab) -> ApiError<String> {
+async fn find_version_sha(
+	state: Arc<AppState>,
+	v: &mut Option<Version>,
+	octo: &mut Octocrab,
+) -> ApiError<String> {
+	let cache = state.vromf_cache.read().await;
+	if let Some(res) = cache
+		.commit_pages
+		.get(&v.unwrap_or(cache.latest_known_version))
+	{
+		return Ok(res.clone());
+	}
+	drop(cache);
+
 	let mut page: u32 = 1;
 	let mut checks = 0;
-	loop {
+	'outer: loop {
 		let res = octo
 			.repos("gszabi99", "War-Thunder-Datamine")
 			.list_commits()
 			.page(page)
 			.send()
 			.await
-			.unwrap();
+			.convert_err()?;
+		let map = &mut state.vromf_cache.write().await.commit_pages;
 		for commit in res {
 			let parsed = Version::from_str(&commit.commit.message).convert_err()?;
+			map.insert(parsed, commit.sha.clone());
 
 			// Searching for version
 			if let Some(v) = *v {
@@ -228,7 +245,7 @@ async fn find_version_sha(v: &mut Option<Version>, octo: &mut Octocrab) -> ApiEr
 			}
 			checks += 1;
 			if checks > 500 {
-				break;
+				break 'outer;
 			}
 		}
 	}
