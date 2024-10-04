@@ -12,7 +12,7 @@ use octocrab::Octocrab;
 use tokio::sync::{Mutex, RwLock};
 use tracing::log::info;
 use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
+use utoipa_scalar::{Scalar, Servable};
 
 use crate::{
 	files::{Params, __path_get_files, get_files, FileRequest, UnpackedVromfs},
@@ -46,7 +46,7 @@ async fn main() {
 		.route("/latest/*vromf", get(get_latest))
 		.route("/metadata/latest", get(print_latest_version))
 		.route("/files/*path", get(get_files))
-		.merge(SwaggerUi::new("/docs").url("/docs/openapi.json", ApiDoc::openapi()))
+		.merge(Scalar::with_url("/docs", ApiDoc::openapi()))
 		.with_state(state.clone());
 
 	// run our app with hyper, listening globally on port 3000

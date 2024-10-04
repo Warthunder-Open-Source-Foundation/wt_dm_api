@@ -25,7 +25,7 @@ dashmap = "6.1.0"
 strum = { version = "0.26.3", features = ["derive"] }
 
 utoipa = { version = "4.2.3", features = ["axum_extras"] }
-utoipa-swagger-ui = { version = "7.1.0", features = ["axum"] }
+utoipa-scalar = { version = "0.1", features = ["axum"] }
 
 [profile.dev]
 opt-level = 2
