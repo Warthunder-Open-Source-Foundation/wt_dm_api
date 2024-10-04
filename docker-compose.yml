@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  rust-web-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/usr/src/app/src
+    restart: always
