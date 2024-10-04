@@ -8,7 +8,7 @@ license = "Apache-2.0"
 [dependencies]
 http = "1.1.0"
 serde = { version = "1.0.210", features = ["derive"] }
-tokio = {version = "1.40.0", features = ["rt-multi-thread", "sync"]}
+tokio = { version = "1.40.0", features = ["rt-multi-thread", "sync"] }
 tracing-subscriber = "0.3.18"
 axum = "0.7.6"
 octocrab = "0.40.0"
@@ -20,9 +20,12 @@ tracing = "0.1.40"
 base64 = "0.22.1"
 color-eyre = "0.6.3"
 
-wt_blk = {git = "https://github.com/Warthunder-Open-Source-Foundation/wt_blk.git", version = "0.2.3"}
+wt_blk = { git = "https://github.com/Warthunder-Open-Source-Foundation/wt_blk.git", version = "0.2.3" }
 dashmap = "6.1.0"
 strum = { version = "0.26.3", features = ["derive"] }
+
+utoipa = { version = "4.2.3", features = ["axum_extras"] }
+utoipa-swagger-ui = { version = "7.1.0", features = ["axum"] }
 
 [profile.dev]
 opt-level = 2

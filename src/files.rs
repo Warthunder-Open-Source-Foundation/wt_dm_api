@@ -9,6 +9,7 @@ use dashmap::DashMap;
 use http::StatusCode;
 use serde::Deserialize;
 use strum::VariantArray;
+use utoipa::{IntoParams, ToSchema};
 use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker};
 use wt_version::Version;
 
@@ -94,10 +95,14 @@ pub struct FileRequest {
 	vromf: VromfType,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct Params {
+	#[param(example = "latest", default = "Latest available")]
+	/// Either version string or literal "latest"
 	version:     Option<String>,
+	#[param(example = "json", default = "json")]
 	format:      Option<String>,
+	#[param(example = "true", default = "true")]
 	single_file: Option<bool>,
 }
 
@@ -142,6 +147,7 @@ impl FileRequest {
 			version: query
 				.version
 				.clone()
+				.filter(|v| v != "latest") // Latest string just gets turned into none
 				.map(|e| Version::from_str(&e))
 				.unwrap_or(Ok(latest))
 				.expect("Infallible"),
@@ -153,6 +159,15 @@ impl FileRequest {
 	}
 }
 
+#[utoipa::path(
+	get,
+	path = "/files/{path}",
+	params(Params),
+	responses(
+        (status = 200, description = "Plaintext or binary depending on format and file", content_type = ["text/plain", "application/octet-stream"]),
+		(status = 404, description = "Provided path is not in vromf"),
+	)
+)]
 pub async fn get_files(
 	State(state): State<Arc<AppState>>,
 	Path(path): Path<String>,

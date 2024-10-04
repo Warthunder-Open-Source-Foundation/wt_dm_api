@@ -11,9 +11,11 @@ use axum::{routing::get, Router};
 use octocrab::Octocrab;
 use tokio::sync::{Mutex, RwLock};
 use tracing::log::info;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
-	files::{get_files, UnpackedVromfs},
+	files::{Params, __path_get_files, get_files, FileRequest, UnpackedVromfs},
 	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},
 	wait_ready::WaitReady,
 };
@@ -24,6 +26,10 @@ pub struct AppState {
 	octocrab:        Mutex<Octocrab>,
 	unpacked_vromfs: UnpackedVromfs,
 }
+
+#[derive(OpenApi)]
+#[openapi(paths(get_files), info(title = "WT Datamining API", version = "1.0"))]
+struct ApiDoc;
 
 #[tokio::main]
 async fn main() {
@@ -40,6 +46,7 @@ async fn main() {
 		.route("/latest/*vromf", get(get_latest))
 		.route("/metadata/latest", get(print_latest_version))
 		.route("/files/*path", get(get_files))
+		.merge(SwaggerUi::new("/docs").url("/docs/openapi.json", ApiDoc::openapi()))
 		.with_state(state.clone());
 
 	// run our app with hyper, listening globally on port 3000
