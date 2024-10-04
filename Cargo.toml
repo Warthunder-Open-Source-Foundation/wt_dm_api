@@ -28,7 +28,7 @@ utoipa = { version = "4.2.3", features = ["axum_extras"] }
 utoipa-scalar = { version = "0.1", features = ["axum"] }
 
 [profile.dev]
-opt-level = 2
+#opt-level = 2
 
 [features]
 dev-cache = []

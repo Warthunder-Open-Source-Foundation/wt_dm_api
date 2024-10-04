@@ -174,16 +174,24 @@ pub async fn get_files(
 ) -> ApiError<impl IntoResponse> {
 	let req = FileRequest::from_path_and_query(state.clone(), &path, &params).await?;
 
-	let content_type = if req.unpack_format.is_some() && req.path.ends_with("blk") {
-		"text/plain"
-	} else {
-		"application/octet-stream"
+	let content_type = match req.unpack_format {
+		None => "application/octet-stream",
+		Some(f) => {
+			if req.path.ends_with("blk") {
+				match f {
+					BlkOutputFormat::Json => "application/json",
+					BlkOutputFormat::BlkText => "text/plain",
+				}
+			} else {
+				"application/octet-stream"
+			}
+		},
 	};
 
 	let res = UnpackedVromfs::unpack_one(state.clone(), dbg!(req)).await?;
 
 	Ok(Response::builder()
-		.header("Content-Type", dbg!(content_type))
+		.header("Content-Type", content_type)
 		.body(Body::from(res))
 		.unwrap())
 }
