@@ -1,4 +1,4 @@
-FROM rust:1.81 as builder
+FROM docker.io/rust:1.81 as builder
 
 RUN rustup default nightly
 
@@ -9,7 +9,7 @@ COPY ./src ./src
 
 RUN cargo build --release
 
-FROM archlinux
+FROM docker.io/archlinux
 WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app/target/release/wt_dm_api .
 EXPOSE 3000
