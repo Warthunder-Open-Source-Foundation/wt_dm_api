@@ -8,13 +8,10 @@ mod wait_ready;
 use std::sync::Arc;
 
 use axum::{
-	http::StatusCode,
-	routing::{get, post},
-	Json,
+	routing::get,
 	Router,
 };
 use octocrab::Octocrab;
-use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, RwLock};
 use tracing::log::info;
 use crate::{

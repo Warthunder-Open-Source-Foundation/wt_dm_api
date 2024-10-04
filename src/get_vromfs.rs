@@ -1,18 +1,12 @@
-use std::{collections::HashMap, fs, num::NonZeroUsize, str::FromStr, sync::{Arc, LazyLock}, time::Duration};
+use std::{collections::HashMap, num::NonZeroUsize, str::FromStr, sync::Arc, time::Duration};
 
-use axum::{
-	extract::{Path, State},
-	response::IntoResponse,
-	Json,
-};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use axum::extract::{Path, State};
 use http::StatusCode;
 use lru::LruCache;
 use strum::VariantArray;
 use tokio::sync::oneshot::Sender;
 use tokio::time::sleep;
 use tracing::info;
-use tracing_subscriber::fmt::format;
 use wt_version::Version;
 
 use crate::AppState;

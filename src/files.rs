@@ -1,5 +1,5 @@
 use std::{
-	path::{Path as StdPath, PathBuf},
+	path::Path as StdPath,
 	str::FromStr,
 	sync::Arc,
 };
