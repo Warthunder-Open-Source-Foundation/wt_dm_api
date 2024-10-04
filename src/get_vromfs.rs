@@ -62,10 +62,11 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 
 		#[cfg(feature = "dev-cache")]
 		{
+			use std::fs;
 			let mut cache_intact = true;
 			let mut files = vec![];
 			for vromf in VromfType::VARIANTS {
-				if let Ok(f) = fs::read(format!("./cache/{vromf}.{latest}")) {
+				if let Ok(f) = fs::read(format!("target/vromf_cache/{vromf}.{latest}")) {
 					files.push((*vromf, f));
 				} else {
 					cache_intact = false;
@@ -107,8 +108,9 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 
 		#[cfg(feature = "dev-cache")]
 		{
+			use std::fs;
 			info!("Wrote cache to disk");
-			fs::create_dir("./cache").unwrap();
+			fs::create_dir("target/vromf_cache").unwrap();
 			for (vromf, b) in state
 				.vromf_cache
 				.write()
@@ -118,7 +120,7 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 				.unwrap()
 				.iter()
 			{
-				fs::write(format!("./cache/{vromf}.{latest}"), b).unwrap()
+				fs::write(format!("target/vromf_cache/{vromf}.{latest}"), b).unwrap()
 			}
 		}
 
