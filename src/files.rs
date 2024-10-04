@@ -94,8 +94,10 @@ pub struct Params {
 	/// Either version string or literal "latest"
 	version:     Option<String>,
 	#[param(example = "json", default = "json")]
+	/// Format to convert BLK to. One of: [raw, blk, json]
 	format:      Option<String>,
 	#[param(example = "true", default = "true")]
+	/// Returns single file or folder when false
 	single_file: Option<bool>,
 }
 
