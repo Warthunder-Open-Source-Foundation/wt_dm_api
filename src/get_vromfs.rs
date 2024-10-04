@@ -208,13 +208,21 @@ async fn find_version_sha(
 	octo: &mut Octocrab,
 ) -> ApiError<String> {
 	let cache = state.vromf_cache.read().await;
-	if let Some(res) = cache
-		.commit_pages
-		.get(&v.unwrap_or(cache.latest_known_version))
-	{
+	let latest_known_version = cache.latest_known_version;
+
+	// Consult LUT for ancient vromfs
+	if let Some(res) = cache.commit_pages.get(&v.unwrap_or(latest_known_version)) {
 		return Ok(res.clone());
 	}
+
+	// Check if the version should have been in the LUT, if it has, the version does not exist
+	if let Some(v) = *v {
+		if latest_known_version > v {
+			return Err((StatusCode::BAD_REQUEST, "Version is not valid".to_string()));
+		}
+	}
 	drop(cache);
+	// Else we look for newer versions than we currently know
 
 	let mut page: u32 = 1;
 	let mut checks = 0;
@@ -249,9 +257,18 @@ async fn find_version_sha(
 			}
 		}
 	}
+	if let Some(v) = *v {
+		if v > latest_known_version {
+			return Err((
+				StatusCode::BAD_REQUEST,
+				"Exceeded 60 searched versions into history. This version seems too new to exist"
+					.to_string(),
+			));
+		}
+	}
 	Err((
 		StatusCode::BAD_REQUEST,
-		"Exceeded 60 searched versions into history.".to_string(),
+		"Exceeded 60 searched versions into history. Are you sure this version exists?".to_string(),
 	))
 }
 

@@ -143,9 +143,19 @@ impl FileRequest {
 				.version
 				.clone()
 				.filter(|v| v != "latest") // Latest string just gets turned into none
-				.map(|e| Version::from_str(&e))
-				.unwrap_or(Ok(latest))
-				.expect("Infallible"),
+				.map(|e| {
+					Version::from_str(&e).convert_err().map_err(|e| {
+						(
+							e.0,
+							format!(
+								"Invalid version: {}",
+								query.version.clone().unwrap_or_default()
+							),
+						)
+					})
+				})
+				.transpose()?
+				.unwrap_or(latest),
 			path,
 			unpack_format,
 			single_file: query.single_file.unwrap_or(true),
