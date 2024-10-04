@@ -1,4 +1,4 @@
-use std::{path::Path as StdPath, str::FromStr, sync::Arc};
+use std::{path::Path as StdPath, str::FromStr, sync::Arc, time::Instant};
 
 use axum::{
 	body::Body,
@@ -16,6 +16,7 @@ use wt_version::Version;
 use crate::{
 	error::ApiError,
 	eyre_error_translation::EyreToApiError,
+	get_vromfs::fetch_vromf,
 	vromf_enum::VromfType,
 	AppState,
 };
@@ -47,18 +48,10 @@ impl UnpackedVromfs {
 		state: Arc<AppState>,
 		req: &FileRequest,
 	) -> Result<(), (StatusCode, String)> {
+		let mut ask_api = true;
 		for vromf in VromfType::VARIANTS {
-			// TODO: Replace expects
-			let buf = state
-				.vromf_cache
-				.write()
-				.await
-				.elems
-				.get(&req.version)
-				.expect("vromfs should have latest version")
-				.get(vromf)
-				.expect("vromfs should be in map")
-				.to_owned();
+			let buf =
+				fetch_vromf(state.clone(), Some(req.version), req.vromf, &mut ask_api).await?;
 			state.unpacked_vromfs.unpackers.insert(
 				(req.version, *vromf),
 				VromfUnpacker::from_file(&File::from_raw(vromf.into(), buf), false)
@@ -127,7 +120,7 @@ impl FileRequest {
 				Some(e) => (VromfType::from_str(e.0).convert_err()?, e.1.to_owned()),
 			}
 		};
-		let latest = state.vromf_cache.read().await.latest_known_version;
+		let latest = state.vromf_cache.read().await.latest_known_version();
 		let unpack_format = match &query.format {
 			None => Some(BlkOutputFormat::Json),
 			Some(f) => match f.to_ascii_lowercase().as_str() {

@@ -8,7 +8,7 @@ pub trait EyreToApiError<T> {
 
 impl<T, E> EyreToApiError<T> for Result<T, E>
 where
-	E: Display + Debug,
+	E: Debug,
 {
 	fn convert_err(self) -> Result<T, (StatusCode, String)> {
 		match self {
