@@ -162,10 +162,14 @@ impl FileRequest {
 #[utoipa::path(
 	get,
 	path = "/files/{path}",
-	params(Params),
+	params(
+		("path" = String, description = "The file path to retrieve from the vromf", example = "aces.vromfs.bin/gamedata/weapons/rocketguns/fr_mica_em.blk"),
+		Params
+	),
 	responses(
         (status = 200, description = "Plaintext or binary depending on format and file", content_type = ["text/plain", "application/octet-stream"]),
 		(status = 404, description = "Provided path is not in vromf"),
+		(status = 400, description = "Format specifier invalid"),
 	)
 )]
 pub async fn get_files(
