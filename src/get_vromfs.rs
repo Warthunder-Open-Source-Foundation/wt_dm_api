@@ -4,15 +4,16 @@ use axum::extract::{Path, State};
 use http::StatusCode;
 use lru::LruCache;
 use strum::VariantArray;
-use tokio::sync::oneshot::Sender;
-use tokio::time::sleep;
+use tokio::{sync::oneshot::Sender, time::sleep};
 use tracing::info;
 use wt_version::Version;
 
-use crate::AppState;
-use crate::error::ApiError;
-use crate::eyre_error_translation::EyreToApiError;
-use crate::vromf_enum::VromfType;
+use crate::{
+	error::ApiError,
+	eyre_error_translation::EyreToApiError,
+	vromf_enum::VromfType,
+	AppState,
+};
 
 pub struct VromfCache {
 	pub elems:                LruCache<Version, HashMap<VromfType, Vec<u8>>>,
@@ -65,14 +66,19 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 			let mut files = vec![];
 			for vromf in VromfType::VARIANTS {
 				if let Ok(f) = fs::read(format!("./cache/{vromf}.{latest}")) {
-					files.push((*vromf,f));
+					files.push((*vromf, f));
 				} else {
 					cache_intact = false;
 				}
 			}
 			if cache_intact {
 				info!("Got vromfs from disk");
-				state.vromf_cache.write().await.elems.push(latest, HashMap::from_iter(files.into_iter()));
+				state
+					.vromf_cache
+					.write()
+					.await
+					.elems
+					.push(latest, HashMap::from_iter(files.into_iter()));
 				return Ok(());
 			}
 		}
@@ -103,7 +109,15 @@ pub async fn refresh_cache(state: Arc<AppState>) -> ApiError<()> {
 		{
 			info!("Wrote cache to disk");
 			fs::create_dir("./cache").unwrap();
-			for (vromf, b) in state.vromf_cache.write().await.elems.get(&latest).unwrap().iter() {
+			for (vromf, b) in state
+				.vromf_cache
+				.write()
+				.await
+				.elems
+				.get(&latest)
+				.unwrap()
+				.iter()
+			{
 				fs::write(format!("./cache/{vromf}.{latest}"), b).unwrap()
 			}
 		}

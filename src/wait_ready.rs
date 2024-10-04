@@ -1,16 +1,22 @@
-use tokio::sync::{oneshot, RwLock};
-use tokio::sync::oneshot::{Receiver, Sender};
+use tokio::sync::{
+	oneshot,
+	oneshot::{Receiver, Sender},
+	RwLock,
+};
 
 pub struct WaitReady {
-	tasks: RwLock<Vec<Receiver<()>>>
+	tasks: RwLock<Vec<Receiver<()>>>,
 }
 
 impl WaitReady {
 	pub fn new() -> Self {
-		WaitReady { tasks: Default::default() }
+		WaitReady {
+			tasks: Default::default(),
+		}
 	}
+
 	pub async fn register(&mut self) -> Sender<()> {
-		let (send, recv)= oneshot::channel();
+		let (send, recv) = oneshot::channel();
 		self.tasks.write().await.push(recv);
 		send
 	}

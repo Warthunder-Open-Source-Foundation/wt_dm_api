@@ -1,35 +1,30 @@
-use std::{
-	path::Path as StdPath,
-	str::FromStr,
-	sync::Arc,
-};
+use std::{path::Path as StdPath, str::FromStr, sync::Arc};
 
 use axum::{
+	body::Body,
 	extract::{Path, Query, State},
+	response::{IntoResponse, Response},
 };
-use axum::body::Body;
-use axum::response::{IntoResponse, Response};
 use dashmap::DashMap;
 use http::StatusCode;
 use serde::Deserialize;
 use strum::VariantArray;
 use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker};
 use wt_version::Version;
-use crate::eyre_error_translation::EyreToApiError;
 
-use crate::{AppState};
-use crate::error::ApiError;
-use crate::vromf_enum::VromfType;
+use crate::{
+	error::ApiError,
+	eyre_error_translation::EyreToApiError,
+	vromf_enum::VromfType,
+	AppState,
+};
 
 pub struct UnpackedVromfs {
 	unpackers: DashMap<(Version, VromfType), VromfUnpacker>,
 }
 
 impl UnpackedVromfs {
-	pub async fn unpack_one(
-		state: Arc<AppState>,
-		req: FileRequest,
-	) -> ApiError<Vec<u8>> {
+	pub async fn unpack_one(state: Arc<AppState>, req: FileRequest) -> ApiError<Vec<u8>> {
 		Self::refresh_cache(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
@@ -46,7 +41,11 @@ impl UnpackedVromfs {
 		}
 	}
 
-	pub async fn refresh_cache(&self, state: Arc<AppState>, req: &FileRequest) -> Result<(), (StatusCode, String)> {
+	pub async fn refresh_cache(
+		&self,
+		state: Arc<AppState>,
+		req: &FileRequest,
+	) -> Result<(), (StatusCode, String)> {
 		for vromf in VromfType::VARIANTS {
 			// TODO: Replace expects
 			let buf = state
@@ -61,10 +60,8 @@ impl UnpackedVromfs {
 				.to_owned();
 			state.unpacked_vromfs.unpackers.insert(
 				(req.version, *vromf),
-				VromfUnpacker::from_file(
-					&File::from_raw(vromf.into(), buf),
-					false,
-				).convert_err()?,
+				VromfUnpacker::from_file(&File::from_raw(vromf.into(), buf), false)
+					.convert_err()?,
 			);
 		}
 		Ok(())
@@ -174,6 +171,5 @@ pub async fn get_files(
 	Ok(Response::builder()
 		.header("Content-Type", dbg!(content_type))
 		.body(Body::from(res))
-		.unwrap()
-	)
+		.unwrap())
 }

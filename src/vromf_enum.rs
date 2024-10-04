@@ -1,6 +1,18 @@
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, strum::Display, strum::EnumString, strum::VariantArray, Eq, PartialEq, Hash, Clone, Copy, strum::AsRefStr, strum::IntoStaticStr)]
+#[derive(
+	Debug,
+	strum::Display,
+	strum::EnumString,
+	strum::VariantArray,
+	Eq,
+	PartialEq,
+	Hash,
+	Clone,
+	Copy,
+	strum::AsRefStr,
+	strum::IntoStaticStr,
+)]
 pub enum VromfType {
 	#[strum(serialize = "aces.vromfs.bin")]
 	Aces,

@@ -1,24 +1,22 @@
+mod error;
+mod eyre_error_translation;
 mod files;
 mod get_vromfs;
-mod eyre_error_translation;
 mod vromf_enum;
-mod error;
 mod wait_ready;
 
 use std::sync::Arc;
 
-use axum::{
-	routing::get,
-	Router,
-};
+use axum::{routing::get, Router};
 use octocrab::Octocrab;
 use tokio::sync::{Mutex, RwLock};
 use tracing::log::info;
+
 use crate::{
 	files::{get_files, UnpackedVromfs},
 	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},
+	wait_ready::WaitReady,
 };
-use crate::wait_ready::WaitReady;
 
 #[derive(Default)]
 pub struct AppState {
@@ -48,7 +46,6 @@ async fn main() {
 	let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
 	update_cache_loop(state, wait_ready.register().await);
-
 
 	wait_ready.wait_ready().await;
 	info!("Wait ready completed. Starting server...");
