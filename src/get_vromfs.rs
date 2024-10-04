@@ -27,7 +27,7 @@ impl Default for VromfCache {
 		Self {
 			elems:                LruCache::new(NonZeroUsize::new(100).unwrap()),
 			latest_known_version: Version::from_u64(0),
-			commit_pages:         Default::default(),
+			commit_pages:         cached_shas(),
 		}
 	}
 }
@@ -244,7 +244,7 @@ async fn find_version_sha(
 				return Ok(commit.sha);
 			}
 			checks += 1;
-			if checks > 500 {
+			if checks > 60 {
 				break 'outer;
 			}
 		}
@@ -276,4 +276,14 @@ pub async fn print_latest_version(State(state): State<Arc<AppState>>) -> String 
 		.await
 		.latest_known_version
 		.to_string()
+}
+
+static CACHED_SHAS: &str = include_str!("../assets/commits.txt");
+fn cached_shas() -> HashMap<Version, String> {
+	CACHED_SHAS
+		.lines()
+		.map(|e| e.split(" "))
+		.map(|mut e| (e.next().unwrap(), e.next().unwrap()))
+		.map(|(sha, version)| (Version::from_str(&version).unwrap(), sha.to_string()))
+		.collect()
 }
