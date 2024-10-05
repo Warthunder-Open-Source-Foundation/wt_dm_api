@@ -15,7 +15,7 @@ use wt_version::Version;
 
 use crate::{
 	error::ApiError,
-	eyre_error_translation::EyreToApiError,
+	eyre_error_translation::{EyreToApiError, OptionToApiError},
 	get_vromfs::fetch_vromf,
 	vromf_enum::VromfType,
 	AppState,
@@ -27,14 +27,14 @@ pub struct UnpackedVromfs {
 
 impl UnpackedVromfs {
 	pub async fn unpack_one(state: Arc<AppState>, req: FileRequest) -> ApiError<Vec<u8>> {
-		Self::refresh_cache(&state.unpacked_vromfs, state.clone(), &req).await?;
+		Self::cache_unpacker(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
 		let unpacker = state
 			.unpacked_vromfs
 			.unpackers
 			.get_mut(&(req.version, vromf))
-			.expect("Vromfs should be validated and present");
+			.convert_err("cache unpacker did not insert requested vromf")?;
 		let res = unpacker.unpack_one(StdPath::new(&req.path), req.unpack_format, true);
 
 		match res {
@@ -43,7 +43,7 @@ impl UnpackedVromfs {
 		}
 	}
 
-	pub async fn refresh_cache(
+	pub async fn cache_unpacker(
 		&self,
 		state: Arc<AppState>,
 		req: &FileRequest,
@@ -203,5 +203,5 @@ pub async fn get_files(
 	Ok(Response::builder()
 		.header("Content-Type", content_type)
 		.body(Body::from(res))
-		.unwrap())
+		.convert_err()?)
 }

@@ -35,7 +35,7 @@ struct ApiDoc;
 async fn main() {
 	// initialize tracing
 	tracing_subscriber::fmt::init();
-	color_eyre::install().unwrap();
+	color_eyre::install().unwrap(/*fine*/);
 
 	let mut wait_ready = WaitReady::new();
 
@@ -50,11 +50,11 @@ async fn main() {
 		.with_state(state.clone());
 
 	// run our app with hyper, listening globally on port 3000
-	let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+	let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap(/*fine*/);
 
 	update_cache_loop(state, wait_ready.register().await);
 
 	wait_ready.wait_ready().await;
 	info!("Wait ready completed. Starting server...");
-	axum::serve(listener, app).await.unwrap();
+	axum::serve(listener, app).await.unwrap(/*fine*/);
 }

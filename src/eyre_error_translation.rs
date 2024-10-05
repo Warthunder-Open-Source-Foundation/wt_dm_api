@@ -17,3 +17,16 @@ where
 		}
 	}
 }
+
+pub trait OptionToApiError<T> {
+	fn convert_err(self, msg: &str) -> Result<T, (StatusCode, String)>;
+}
+
+impl<T> OptionToApiError<T> for Option<T> {
+	fn convert_err(self, msg: &str) -> Result<T, (StatusCode, String)> {
+		match self {
+			Some(e) => Ok(e),
+			None => Err((StatusCode::INTERNAL_SERVER_ERROR, msg.to_owned())),
+		}
+	}
+}

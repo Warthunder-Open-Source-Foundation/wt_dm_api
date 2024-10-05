@@ -23,7 +23,7 @@ impl WaitReady {
 
 	pub async fn wait_ready(self) {
 		for task in self.tasks.into_inner() {
-			task.await.unwrap();
+			task.await.unwrap(/*fine*/);
 		}
 	}
 }
