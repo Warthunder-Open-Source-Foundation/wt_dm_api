@@ -9,6 +9,7 @@ use dashmap::DashMap;
 use http::StatusCode;
 use serde::Deserialize;
 use strum::VariantArray;
+use tokio::task::spawn_blocking;
 use utoipa::{IntoParams, ToSchema};
 use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker};
 use wt_version::Version;
@@ -30,17 +31,23 @@ impl UnpackedVromfs {
 		Self::cache_unpacker(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
-		let unpacker = state
-			.unpacked_vromfs
-			.unpackers
-			.get_mut(&(req.version, vromf))
-			.convert_err("cache unpacker did not insert requested vromf")?;
-		let res = unpacker.unpack_one(StdPath::new(&req.path), req.unpack_format, true);
 
-		match res {
-			Ok(res) => Ok(res.split().1),
-			Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-		}
+		let res = spawn_blocking(move || {
+			let unpacker = state
+				.unpacked_vromfs
+				.unpackers
+				.get_mut(&(req.version, vromf))
+				.convert_err("cache unpacker did not insert requested vromf")?;
+
+			let res = unpacker
+				.unpack_one(StdPath::new(&req.path), req.unpack_format, true)
+				.convert_err();
+			res
+		})
+		.await
+		.convert_err()??;
+
+		Ok(res.split().1)
 	}
 
 	/// Ensures that unpacker is cached

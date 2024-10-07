@@ -36,10 +36,6 @@ impl VromfCache {
 	pub fn latest_known_version(&self) -> Version {
 		self.latest_known_version
 	}
-
-	pub fn has_version(&self, version: Version) -> bool {
-		self.elems.contains(&version)
-	}
 }
 
 pub async fn fetch_vromf(
