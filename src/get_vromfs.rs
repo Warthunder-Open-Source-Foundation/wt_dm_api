@@ -147,7 +147,7 @@ pub async fn pull_vromf_to_cache(
 			{
 				use std::fs;
 				info!("Wrote cache to disk");
-				fs::create_dir("target/vromf_cache").unwrap(/*fine*/);
+				let _ = fs::create_dir("target/vromf_cache");
 				for (vromf, b) in state
 					.vromf_cache
 					.write()
