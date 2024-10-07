@@ -36,6 +36,10 @@ impl VromfCache {
 	pub fn latest_known_version(&self) -> Version {
 		self.latest_known_version
 	}
+
+	pub fn has_version(&self, version: Version) -> bool {
+		self.elems.contains(&version)
+	}
 }
 
 pub async fn fetch_vromf(
@@ -183,7 +187,7 @@ pub async fn pull_vromf_to_cache(
 
 async fn get_vromfs(sha: &str, octo: &mut Octocrab) -> ApiError<HashMap<VromfType, Vec<u8>>> {
 	let mut reqs = HashMap::new();
-	debug!("Downloading vromfs");
+	info!("Downloading vromfs from: {sha}");
 	for vromf in VromfType::VARIANTS {
 		let file = octo
 			.repos("gszabi99", "War-Thunder-Datamine")
@@ -223,6 +227,7 @@ async fn find_version_sha(
 
 	// Consult LUT for ancient vromfs
 	if let Some(res) = cache.commit_pages.get(&v.unwrap_or(latest_known_version)) {
+		*v = Some(latest_known_version);
 		return Ok(res.clone());
 	}
 
@@ -237,7 +242,7 @@ async fn find_version_sha(
 
 	let mut page: u32 = 1;
 	let mut checks = 0;
-	debug!("Fetching SHAs from github");
+	info!("Fetching SHAs from github for version: {v:?}");
 	'outer: loop {
 		let res = octo
 			.repos("gszabi99", "War-Thunder-Datamine")

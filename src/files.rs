@@ -43,11 +43,20 @@ impl UnpackedVromfs {
 		}
 	}
 
+	/// Ensures that unpacker is cached
 	pub async fn cache_unpacker(
 		&self,
 		state: Arc<AppState>,
 		req: &FileRequest,
 	) -> Result<(), (StatusCode, String)> {
+		if state
+			.unpacked_vromfs
+			.unpackers
+			.contains_key(&(req.version, req.vromf))
+		{
+			return Ok(());
+		}
+
 		let mut ask_api = true;
 		for vromf in VromfType::VARIANTS {
 			let buf =
@@ -198,7 +207,7 @@ pub async fn get_files(
 		},
 	};
 
-	let res = UnpackedVromfs::unpack_one(state.clone(), dbg!(req)).await?;
+	let res = UnpackedVromfs::unpack_one(state.clone(), req).await?;
 
 	Ok(Response::builder()
 		.header("Content-Type", content_type)

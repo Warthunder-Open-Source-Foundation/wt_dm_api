@@ -10,8 +10,7 @@ use std::sync::Arc;
 use axum::{routing::get, Router};
 use octocrab::Octocrab;
 use tokio::sync::{Mutex, RwLock};
-use tracing::level_filters::LevelFilter;
-use tracing::log::info;
+use tracing::{level_filters::LevelFilter, log::info};
 use tracing_subscriber::{fmt, EnvFilter};
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
@@ -38,11 +37,9 @@ async fn main() {
 	// initialize tracing
 	let filter = EnvFilter::from_default_env()
 		// Set the base level when not matched by other directives to WARN.
-		.add_directive(LevelFilter::DEBUG.into());
+		.add_directive(LevelFilter::INFO.into());
 
-	fmt()
-		.with_env_filter(filter)
-		.try_init().unwrap();
+	fmt().with_env_filter(filter).try_init().unwrap();
 	color_eyre::install().unwrap(/*fine*/);
 
 	let mut wait_ready = WaitReady::new();
