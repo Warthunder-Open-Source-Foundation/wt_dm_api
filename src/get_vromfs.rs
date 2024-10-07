@@ -6,7 +6,7 @@ use lru::LruCache;
 use octocrab::Octocrab;
 use strum::VariantArray;
 use tokio::{sync::oneshot::Sender, time::sleep};
-use tracing::info;
+use tracing::{debug, info};
 use wt_version::Version;
 
 use crate::{
@@ -183,6 +183,7 @@ pub async fn pull_vromf_to_cache(
 
 async fn get_vromfs(sha: &str, octo: &mut Octocrab) -> ApiError<HashMap<VromfType, Vec<u8>>> {
 	let mut reqs = HashMap::new();
+	debug!("Downloading vromfs");
 	for vromf in VromfType::VARIANTS {
 		let file = octo
 			.repos("gszabi99", "War-Thunder-Datamine")
@@ -236,6 +237,7 @@ async fn find_version_sha(
 
 	let mut page: u32 = 1;
 	let mut checks = 0;
+	debug!("Fetching SHAs from github");
 	'outer: loop {
 		let res = octo
 			.repos("gszabi99", "War-Thunder-Datamine")
