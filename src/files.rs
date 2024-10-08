@@ -138,7 +138,7 @@ impl FileRequest {
 				Some(e) => (VromfType::from_str(e.0).convert_err()?, e.1.to_owned()),
 			}
 		};
-		let latest = state.vromf_cache.read().await.latest_known_version();
+		let latest = state.vromf_cache.latest_known_version();
 		let unpack_format = match &query.format {
 			None => Some(BlkOutputFormat::Json),
 			Some(f) => match f.to_ascii_lowercase().as_str() {

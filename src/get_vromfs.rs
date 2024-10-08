@@ -1,11 +1,15 @@
 use std::{collections::HashMap, num::NonZeroUsize, str::FromStr, sync::Arc, time::Duration};
 
+use arc_swap::ArcSwap;
 use axum::extract::{Path, State};
+use dashmap::DashMap;
 use http::StatusCode;
-use lru::LruCache;
 use octocrab::Octocrab;
 use strum::VariantArray;
-use tokio::{sync::oneshot::Sender, time::sleep};
+use tokio::{
+	sync::{oneshot::Sender, RwLock},
+	time::sleep,
+};
 use tracing::{debug, info};
 use wt_version::Version;
 
@@ -17,16 +21,16 @@ use crate::{
 };
 
 pub struct VromfCache {
-	elems:                LruCache<Version, HashMap<VromfType, Vec<u8>>>,
-	latest_known_version: Version,
-	commit_pages:         HashMap<Version, String>,
+	elems:                DashMap<Version, HashMap<VromfType, Vec<u8>>>,
+	latest_known_version: ArcSwap<Version>,
+	commit_pages:         DashMap<Version, String>,
 }
 
 impl Default for VromfCache {
 	fn default() -> Self {
 		Self {
-			elems:                LruCache::new(NonZeroUsize::new(100).unwrap(/*fine*/)),
-			latest_known_version: Version::from_u64(0),
+			elems:                DashMap::new(),
+			latest_known_version: ArcSwap::new(Arc::new(Version::from_u64(0))),
 			commit_pages:         cached_shas(),
 		}
 	}
@@ -34,7 +38,11 @@ impl Default for VromfCache {
 
 impl VromfCache {
 	pub fn latest_known_version(&self) -> Version {
-		self.latest_known_version
+		**self.latest_known_version.load()
+	}
+
+	pub fn set_latest_known_version(&self, v: Version) {
+		self.latest_known_version.swap(Arc::new(v));
 	}
 }
 
@@ -49,19 +57,12 @@ pub async fn fetch_vromf(
 	let version = if let Some(v) = version {
 		v
 	} else {
-		state.vromf_cache.read().await.latest_known_version
+		state.vromf_cache.latest_known_version()
 	};
 
 	// Validate if cache already has vromf
 	if *ask_api {
-		if state
-			.vromf_cache
-			.write()
-			.await
-			.elems
-			.get(&version)
-			.is_some()
-		{
+		if state.vromf_cache.elems.get(&version).is_some() {
 			*ask_api = false;
 		}
 	}
@@ -73,8 +74,6 @@ pub async fn fetch_vromf(
 
 	let res = state
 		.vromf_cache
-		.write()
-		.await
 		.elems
 		.get(&version)
 		.convert_err("vromf cache does not have expected version")?
@@ -91,8 +90,8 @@ pub async fn get_latest(
 	State(state): State<Arc<AppState>>,
 	Path(path): Path<String>,
 ) -> ApiError<Vec<u8>> {
-	let mut r = state.vromf_cache.write().await;
-	let v = r.latest_known_version.clone();
+	let r = &state.vromf_cache;
+	let v = r.latest_known_version();
 	match r.elems.get(&v) {
 		None => Err((StatusCode::NOT_FOUND, format!("Version {v} is invalid"))),
 		Some(c) => match c.get(&VromfType::from_str(&path).convert_err()?) {
@@ -113,9 +112,9 @@ pub async fn pull_vromf_to_cache(
 	let sha = find_version_sha(state.clone(), &mut version, &mut octo).await?;
 	let version = version.convert_err("Version was not set by find_version_sha")?;
 	if get_latest {
-		if version > state.vromf_cache.read().await.latest_known_version {
+		if version > state.vromf_cache.latest_known_version() {
 			info!("Found newer version: {version}");
-			state.vromf_cache.write().await.latest_known_version = version;
+			state.vromf_cache.set_latest_known_version(version);
 
 			#[cfg(feature = "dev-cache")]
 			{
@@ -133,15 +132,13 @@ pub async fn pull_vromf_to_cache(
 					info!("Got vromfs from disk");
 					state
 						.vromf_cache
-						.write()
-						.await
 						.elems
-						.push(version, HashMap::from_iter(files.into_iter()));
+						.insert(version, HashMap::from_iter(files.into_iter()));
 					return Ok(());
 				}
 			}
 			let vromfs = get_vromfs(&sha, &mut octo).await?;
-			state.vromf_cache.write().await.elems.push(version, vromfs);
+			state.vromf_cache.elems.insert(version, vromfs);
 
 			#[cfg(feature = "dev-cache")]
 			{
@@ -150,8 +147,6 @@ pub async fn pull_vromf_to_cache(
 				let _ = fs::create_dir("target/vromf_cache");
 				for (vromf, b) in state
 					.vromf_cache
-					.write()
-					.await
 					.elems
 					.get(&version)
 					.unwrap(/*fine*/)
@@ -166,16 +161,9 @@ pub async fn pull_vromf_to_cache(
 			info!("No newer version found");
 		}
 	} else {
-		if state
-			.vromf_cache
-			.write()
-			.await
-			.elems
-			.get(&version)
-			.is_none()
-		{
+		if state.vromf_cache.elems.get(&version).is_none() {
 			let vromfs = get_vromfs(&sha, &mut octo).await?;
-			state.vromf_cache.write().await.elems.push(version, vromfs);
+			state.vromf_cache.elems.insert(version, vromfs);
 		}
 	}
 	Ok(())
@@ -218,8 +206,8 @@ async fn find_version_sha(
 	v: &mut Option<Version>,
 	octo: &mut Octocrab,
 ) -> ApiError<String> {
-	let cache = state.vromf_cache.read().await;
-	let latest_known_version = cache.latest_known_version;
+	let cache = &state.vromf_cache;
+	let latest_known_version = cache.latest_known_version();
 
 	// Consult LUT for ancient vromfs
 	if let Some(res) = cache.commit_pages.get(&v.unwrap_or(latest_known_version)) {
@@ -233,7 +221,6 @@ async fn find_version_sha(
 			return Err((StatusCode::BAD_REQUEST, "Version is not valid".to_string()));
 		}
 	}
-	drop(cache);
 	// Else we look for newer versions than we currently know
 
 	let mut page: u32 = 1;
@@ -247,7 +234,7 @@ async fn find_version_sha(
 			.send()
 			.await
 			.convert_err()?;
-		let map = &mut state.vromf_cache.write().await.commit_pages;
+		let map = &state.vromf_cache.commit_pages;
 		for commit in res {
 			let parsed = Version::from_str(&commit.commit.message).convert_err()?;
 			map.insert(parsed, commit.sha.clone());
@@ -300,16 +287,11 @@ pub fn update_cache_loop(state: Arc<AppState>, sender: Sender<()>) {
 }
 
 pub async fn print_latest_version(State(state): State<Arc<AppState>>) -> String {
-	state
-		.vromf_cache
-		.read()
-		.await
-		.latest_known_version
-		.to_string()
+	state.vromf_cache.latest_known_version().to_string()
 }
 
 static CACHED_SHAS: &str = include_str!("../assets/commits.txt");
-fn cached_shas() -> HashMap<Version, String> {
+fn cached_shas() -> DashMap<Version, String> {
 	CACHED_SHAS
 		.lines()
 		.map(|e| e.split(" "))

@@ -23,7 +23,7 @@ use crate::{
 
 #[derive(Default)]
 pub struct AppState {
-	vromf_cache:     RwLock<VromfCache>,
+	vromf_cache:     VromfCache,
 	octocrab:        Mutex<Octocrab>,
 	unpacked_vromfs: UnpackedVromfs,
 }
