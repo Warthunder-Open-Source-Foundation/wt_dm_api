@@ -46,12 +46,12 @@ impl From<&VromfType> for PathBuf {
 
 impl From<VromfType> for &Path {
 	fn from(value: VromfType) -> Self {
-		Path::new(Into::<&'static str>::into(value))
+		Path::new(Into::<&str>::into(value))
 	}
 }
 
 impl From<&VromfType> for &Path {
 	fn from(value: &VromfType) -> Self {
-		Path::new(Into::<&'static str>::into(value))
+		Path::new(Into::<&str>::into(value))
 	}
 }
