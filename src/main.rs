@@ -5,12 +5,17 @@ mod get_vromfs;
 mod vromf_enum;
 mod wait_ready;
 
-use std::sync::Arc;
+use std::{process::abort, sync::Arc, time::Duration};
 
 use axum::{routing::get, Router};
 use octocrab::Octocrab;
-use tokio::sync::{Mutex, RwLock};
-use tracing::{level_filters::LevelFilter, log::info};
+use tokio::{
+	signal,
+	spawn,
+	sync::{Mutex, RwLock},
+	time::sleep,
+};
+use tracing::{error, level_filters::LevelFilter, log::info};
 use tracing_subscriber::{fmt, EnvFilter};
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
@@ -42,6 +47,14 @@ async fn main() {
 	fmt().with_env_filter(filter).try_init().unwrap();
 	color_eyre::install().unwrap(/*fine*/);
 
+	let t = spawn(async {
+		signal::ctrl_c().await.unwrap();
+		error!("Got CTRL-C signal. Aborting in 1000ms");
+		sleep(Duration::from_millis(1000)).await;
+		error!("Aborting after CTRL-C...");
+		abort();
+	});
+
 	let mut wait_ready = WaitReady::new();
 
 	let state = Arc::new(AppState::default());
@@ -62,4 +75,5 @@ async fn main() {
 	wait_ready.wait_ready().await;
 	info!("Wait ready completed. Starting server...");
 	axum::serve(listener, app).await.unwrap(/*fine*/);
+	t.await.unwrap();
 }
