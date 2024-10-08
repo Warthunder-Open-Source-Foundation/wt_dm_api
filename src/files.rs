@@ -36,7 +36,7 @@ impl UnpackedVromfs {
 			let unpacker = state
 				.unpacked_vromfs
 				.unpackers
-				.get_mut(&(req.version, vromf))
+				.get(&(req.version, vromf))
 				.convert_err("cache unpacker did not insert requested vromf")?;
 
 			let res = unpacker
