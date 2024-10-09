@@ -11,7 +11,7 @@ use serde::Deserialize;
 use strum::VariantArray;
 use tokio::task::spawn_blocking;
 use utoipa::{IntoParams, ToSchema};
-use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker};
+use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker, ZipFormat};
 use wt_version::Version;
 
 use crate::{
@@ -48,6 +48,36 @@ impl UnpackedVromfs {
 		.convert_err()??;
 
 		Ok(res.split().1)
+	}
+
+	pub async fn unpack_zip(state: Arc<AppState>, req: FileRequest) -> ApiError<Vec<u8>> {
+		Self::cache_unpacker(&state.unpacked_vromfs, state.clone(), &req).await?;
+
+		let vromf = req.vromf;
+
+		let res = spawn_blocking(move || {
+			let unpacker = state
+				.unpacked_vromfs
+				.unpackers
+				.get(&(req.version, vromf))
+				.convert_err("cache unpacker did not insert requested vromf")?;
+
+			let res = unpacker
+				.clone()
+				.unpack_subfolder_to_zip(
+					&req.path,
+					true,
+					ZipFormat::Compressed(6),
+					req.unpack_format,
+					true,
+				)
+				.convert_err();
+			res
+		})
+		.await
+		.convert_err()??;
+
+		Ok(res)
 	}
 
 	/// Ensures that unpacker is cached
@@ -108,13 +138,10 @@ pub struct FileRequest {
 pub struct Params {
 	#[param(example = "latest", default = "Latest available")]
 	/// Either version string or literal "latest"
-	version:     Option<String>,
+	version: Option<String>,
 	#[param(example = "json", default = "json")]
 	/// Format to convert BLK to. One of: [raw, blk, json]
-	format:      Option<String>,
-	#[param(example = "true", default = "true")]
-	/// Returns single file or folder when false
-	single_file: Option<bool>,
+	format:  Option<String>,
 }
 
 impl FileRequest {
@@ -153,6 +180,7 @@ impl FileRequest {
 				},
 			},
 		};
+		let single_file = path.contains('.');
 
 		Ok(Self {
 			version: query
@@ -174,7 +202,7 @@ impl FileRequest {
 				.unwrap_or(latest),
 			path,
 			unpack_format,
-			single_file: query.single_file.unwrap_or(true),
+			single_file,
 			vromf,
 		})
 	}
@@ -184,7 +212,7 @@ impl FileRequest {
 	get,
 	path = "/files/{path}",
 	params(
-		("path" = String, description = "The file path to retrieve from the vromf", example = "aces.vromfs.bin/gamedata/weapons/rocketguns/fr_mica_em.blk"),
+		("path" = String, description = "The file/folder path to retrieve from the vromf", example = "aces.vromfs.bin/gamedata/weapons/rocketguns/fr_mica_em.blk"),
 		Params
 	),
 	responses(
@@ -200,21 +228,26 @@ pub async fn get_files(
 ) -> ApiError<impl IntoResponse> {
 	let req = FileRequest::from_path_and_query(state.clone(), &path, &params).await?;
 
-	let content_type = match req.unpack_format {
-		None => "application/octet-stream",
-		Some(f) => {
-			if req.path.ends_with("blk") {
-				match f {
-					BlkOutputFormat::Json => "application/json",
-					BlkOutputFormat::BlkText => "text/plain",
+	let (res, content_type) = if req.single_file {
+		let t = match req.unpack_format {
+			None => "application/octet-stream",
+			Some(f) => {
+				if req.path.ends_with("blk") {
+					match f {
+						BlkOutputFormat::Json => "application/json",
+						BlkOutputFormat::BlkText => "text/plain",
+					}
+				} else {
+					"application/octet-stream"
 				}
-			} else {
-				"application/octet-stream"
-			}
-		},
+			},
+		};
+		let res = UnpackedVromfs::unpack_one(state.clone(), req).await?;
+		(res, t)
+	} else {
+		let res = UnpackedVromfs::unpack_zip(state.clone(), req).await?;
+		(res, "application/zip")
 	};
-
-	let res = UnpackedVromfs::unpack_one(state.clone(), req).await?;
 
 	Ok(Response::builder()
 		.header("Content-Type", content_type)
