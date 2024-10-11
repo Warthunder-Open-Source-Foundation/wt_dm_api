@@ -39,17 +39,20 @@ struct ApiDoc;
 
 #[tokio::main]
 async fn main() {
-	// initialize tracing
-	let filter = EnvFilter::from_default_env()
-		// Set the base level when not matched by other directives to WARN.
-		.add_directive(LevelFilter::INFO.into());
+	if cfg!(feature = "tokio-console") {
+		#[cfg(feature = "tokio-console")]
+		console_subscriber::init();
+	} else {
+		let filter = EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into());
+		fmt().with_env_filter(filter).try_init().unwrap();
+	}
 
-	fmt().with_env_filter(filter).try_init().unwrap();
 	color_eyre::install().unwrap(/*fine*/);
 
 	let t = spawn(async {
 		signal::ctrl_c().await.unwrap();
 		error!("Got CTRL-C signal. Aborting in 1000ms");
+		#[cfg(not(debug_assertions))]
 		sleep(Duration::from_millis(1000)).await;
 		error!("Aborting after CTRL-C...");
 		abort();
