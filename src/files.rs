@@ -68,14 +68,13 @@ impl UnpackedVromfs {
 						.convert_err("cache unpacker did not insert requested vromf")?;
 
 					let res = unpacker
-						.clone()
 						.unpack_subfolder_to_zip(
 							&req.path,
 							true,
-							ZipFormat::Compressed(6),
+							ZipFormat::Uncompressed,
 							req.unpack_format,
 							true,
-							true,
+							true, // TODO: Set this false when the system is under very high load
 						)
 						.convert_err();
 					Ok(res)

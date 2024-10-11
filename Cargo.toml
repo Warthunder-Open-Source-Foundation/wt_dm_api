@@ -36,6 +36,6 @@ futures = { version = "0.3.31", features = ["thread-pool"] }
 #opt-level = 2
 
 [features]
-developement = ["dev-cache", "tokio-console", "console-subscriber"]
+dev = ["dev-cache"]
 dev-cache = []
-tokio-console = []
+tokio-console = ["console-subscriber"]

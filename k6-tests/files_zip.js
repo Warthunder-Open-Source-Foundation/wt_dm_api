@@ -6,7 +6,7 @@ export const options = {
     thresholds: {
         http_req_duration: ["p(95) < 250"],
     },
-    vus: 50,
+    vus: 30,
     duration: '20s',
 };
 
@@ -15,5 +15,5 @@ export default function () {
     let res = http.get("http://localhost:3000/files/aces.vromfs.bin/gamedata/weapons/rocketguns");
     // Validate response status
     check(res, {"status was 200": (r) => r.status == 200});
-    sleep(1);
+    sleep("100ms");
 }
