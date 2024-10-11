@@ -1,3 +1,4 @@
+mod app_state;
 mod error;
 mod eyre_error_translation;
 mod files;
@@ -9,6 +10,7 @@ use std::{process::abort, sync::Arc, time::Duration};
 
 use axum::{routing::get, Router};
 use octocrab::Octocrab;
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use tokio::{
 	signal,
 	spawn,
@@ -21,17 +23,11 @@ use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
 use crate::{
+	app_state::AppState,
 	files::{Params, __path_get_files, get_files, FileRequest, UnpackedVromfs},
 	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},
 	wait_ready::WaitReady,
 };
-
-#[derive(Default)]
-pub struct AppState {
-	vromf_cache:     VromfCache,
-	octocrab:        Mutex<Octocrab>,
-	unpacked_vromfs: UnpackedVromfs,
-}
 
 #[derive(OpenApi)]
 #[openapi(paths(get_files), info(title = "WT Datamining API", version = "1.0"))]

@@ -15,11 +15,11 @@ use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker, ZipFormat};
 use wt_version::Version;
 
 use crate::{
+	app_state::AppState,
 	error::ApiError,
 	eyre_error_translation::{EyreToApiError, OptionToApiError},
 	get_vromfs::fetch_vromf,
 	vromf_enum::VromfType,
-	AppState,
 };
 
 pub struct UnpackedVromfs {
@@ -31,21 +31,24 @@ impl UnpackedVromfs {
 		Self::cache_unpacker(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
+		let res = state
+			.clone()
+			.spawn_worker(move |s| {
+				let res = || {
+					let unpacker = state
+						.unpacked_vromfs
+						.unpackers
+						.get(&(req.version, vromf))
+						.convert_err("cache unpacker did not insert requested vromf")?;
 
-		let res = spawn_blocking(move || {
-			let unpacker = state
-				.unpacked_vromfs
-				.unpackers
-				.get(&(req.version, vromf))
-				.convert_err("cache unpacker did not insert requested vromf")?;
-
-			let res = unpacker
-				.unpack_one(StdPath::new(&req.path), req.unpack_format, true)
-				.convert_err();
-			res
-		})
-		.await
-		.convert_err()??;
+					let res = unpacker
+						.unpack_one(StdPath::new(&req.path), req.unpack_format, true)
+						.convert_err()?;
+					Ok(res)
+				};
+				s.send(res()).unwrap()
+			})
+			.await??;
 
 		Ok(res.split().1)
 	}
@@ -54,28 +57,32 @@ impl UnpackedVromfs {
 		Self::cache_unpacker(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
+		let res = state
+			.clone()
+			.spawn_worker(move |s| {
+				let res = || {
+					let unpacker = state
+						.unpacked_vromfs
+						.unpackers
+						.get(&(req.version, vromf))
+						.convert_err("cache unpacker did not insert requested vromf")?;
 
-		let res = spawn_blocking(move || {
-			let unpacker = state
-				.unpacked_vromfs
-				.unpackers
-				.get(&(req.version, vromf))
-				.convert_err("cache unpacker did not insert requested vromf")?;
-
-			let res = unpacker
-				.clone()
-				.unpack_subfolder_to_zip(
-					&req.path,
-					true,
-					ZipFormat::Compressed(6),
-					req.unpack_format,
-					true,
-				)
-				.convert_err();
-			res
-		})
-		.await
-		.convert_err()??;
+					let res = unpacker
+						.clone()
+						.unpack_subfolder_to_zip(
+							&req.path,
+							true,
+							ZipFormat::Compressed(6),
+							req.unpack_format,
+							true,
+							true,
+						)
+						.convert_err();
+					Ok(res)
+				};
+				s.send(res()).unwrap();
+			})
+			.await???;
 
 		Ok(res)
 	}
