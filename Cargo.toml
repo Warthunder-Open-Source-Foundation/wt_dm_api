@@ -27,11 +27,14 @@ utoipa = { version = "4.2.3", features = ["axum_extras"] }
 utoipa-scalar = { version = "0.1", features = ["axum"] }
 arc-swap = "1.7.1"
 
+futures = { version = "0.3.31", features = ["thread-pool"] }
+moka = { version = "0.12.8", features = ["future"] }
+tracing-loki = { version = "0.2.5", features = ["rustls", "compat-0-2-1"], default-features = false }
+
 # Optionals
 console-subscriber = { version = "0.4.0", optional = true }
 rayon = "1.10.0"
-futures = { version = "0.3.31", features = ["thread-pool"] }
-moka = { version = "0.12.8", features = ["future"] }
+
 
 [profile.dev]
 #opt-level = 2
