@@ -40,13 +40,13 @@ async fn main() {
 		console_subscriber::init();
 	} else {
 		let filter = EnvFilter::from_default_env().add_directive(LevelFilter::INFO.into());
-		fmt().with_env_filter(filter).try_init().unwrap();
+		fmt().with_env_filter(filter).try_init().unwrap(/*fine*/);
 	}
 
 	color_eyre::install().unwrap(/*fine*/);
 
 	let t = spawn(async {
-		signal::ctrl_c().await.unwrap();
+		signal::ctrl_c().await.unwrap(/*fine*/);
 		error!("Got CTRL-C signal. Aborting in 1000ms");
 		#[cfg(not(debug_assertions))]
 		sleep(Duration::from_millis(1000)).await;
@@ -74,5 +74,5 @@ async fn main() {
 	wait_ready.wait_ready().await;
 	info!("Wait ready completed. Starting server...");
 	axum::serve(listener, app).await.unwrap(/*fine*/);
-	t.await.unwrap();
+	t.await.unwrap(/*fine*/);
 }

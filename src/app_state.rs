@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
+use moka::future::{Cache, CacheBuilder};
 use octocrab::Octocrab;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use tokio::{
@@ -13,15 +14,19 @@ use tokio::{
 use crate::{
 	error::ApiError,
 	eyre_error_translation::EyreToApiError,
-	files::UnpackedVromfs,
+	files::{FileRequest, UnpackedVromfs},
 	get_vromfs::VromfCache,
 };
 
 pub struct AppState {
+	// Contains binary VROMFs requested from github
 	pub vromf_cache:     VromfCache,
 	pub octocrab:        Mutex<Octocrab>,
+	// Initialized unpackers per VROMF
 	pub unpacked_vromfs: UnpackedVromfs,
 	worker_pool:         Arc<ThreadPool>,
+	// 	Request with content type and data
+	pub files_cache:     Cache<FileRequest, (Vec<u8>, &'static str)>,
 }
 
 impl Default for AppState {
@@ -30,7 +35,7 @@ impl Default for AppState {
 			ThreadPoolBuilder::new()
 				.thread_name(|idx| format!("worker-pool-{}", idx))
 				.build()
-				.unwrap(),
+				.unwrap(/*fine*/),
 		);
 
 		Self {
@@ -38,6 +43,9 @@ impl Default for AppState {
 			octocrab: Default::default(),
 			unpacked_vromfs: Default::default(),
 			worker_pool,
+			files_cache: CacheBuilder::new(100)
+				.time_to_idle(Duration::from_secs(60 * 60)) // 😡😡😡😡😡 https://github.com/rust-lang/rust/issues/120301
+				.build(),
 		}
 	}
 }

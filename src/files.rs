@@ -27,7 +27,7 @@ pub struct UnpackedVromfs {
 }
 
 impl UnpackedVromfs {
-	pub async fn unpack_one(state: Arc<AppState>, req: FileRequest) -> ApiError<Vec<u8>> {
+	pub async fn unpack_one(state: Arc<AppState>, req: Arc<FileRequest>) -> ApiError<Vec<u8>> {
 		Self::cache_unpacker(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
@@ -46,14 +46,14 @@ impl UnpackedVromfs {
 						.convert_err()?;
 					Ok(res)
 				};
-				s.send(res()).unwrap()
+				s.send(res()).expect("channel to remain open after work");
 			})
 			.await??;
 
 		Ok(res.split().1)
 	}
 
-	pub async fn unpack_zip(state: Arc<AppState>, req: FileRequest) -> ApiError<Vec<u8>> {
+	pub async fn unpack_zip(state: Arc<AppState>, req: Arc<FileRequest>) -> ApiError<Vec<u8>> {
 		Self::cache_unpacker(&state.unpacked_vromfs, state.clone(), &req).await?;
 
 		let vromf = req.vromf;
@@ -79,7 +79,7 @@ impl UnpackedVromfs {
 						.convert_err();
 					Ok(res)
 				};
-				s.send(res()).unwrap();
+				s.send(res()).expect("channel to remain open after work");
 			})
 			.await???;
 
@@ -122,7 +122,7 @@ impl Default for UnpackedVromfs {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub struct FileRequest {
 	/// Defaults to latest
 	version: Version,
@@ -234,8 +234,22 @@ pub async fn get_files(
 ) -> ApiError<impl IntoResponse> {
 	let req = FileRequest::from_path_and_query(state.clone(), &path, &params).await?;
 
+	let return_body = |(res, content_type): (Vec<u8>, _)| {
+		Ok(Response::builder()
+			.header("Content-Type", content_type)
+			.body(Body::from(res))
+			.convert_err()?)
+	};
+
+	if let Some(res) = state.files_cache.get(&req).await {
+		return return_body(res);
+	}
+
+	// From here on req gets passed to a bunch of threads so we share it
+	let req = Arc::new(req);
+
 	let (res, content_type) = if req.single_file {
-		let t = match req.unpack_format {
+		let t = match &req.unpack_format {
 			None => "application/octet-stream",
 			Some(f) => {
 				if req.path.ends_with("blk") {
@@ -248,15 +262,20 @@ pub async fn get_files(
 				}
 			},
 		};
-		let res = UnpackedVromfs::unpack_one(state.clone(), req).await?;
+		let res = UnpackedVromfs::unpack_one(state.clone(), req.clone()).await?;
 		(res, t)
 	} else {
-		let res = UnpackedVromfs::unpack_zip(state.clone(), req).await?;
+		let res = UnpackedVromfs::unpack_zip(state.clone(), req.clone()).await?;
 		(res, "application/zip")
 	};
 
-	Ok(Response::builder()
-		.header("Content-Type", content_type)
-		.body(Body::from(res))
-		.convert_err()?)
+	state
+		.files_cache
+		.insert(
+			Arc::<FileRequest>::unwrap_or_clone(req),
+			(res.clone(), content_type),
+		)
+		.await;
+
+	return_body((res, content_type))
 }

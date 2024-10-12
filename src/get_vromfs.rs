@@ -10,7 +10,7 @@ use tokio::{
 	sync::{oneshot::Sender, RwLock},
 	time::sleep,
 };
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use wt_version::Version;
 
 use crate::{
@@ -276,9 +276,12 @@ pub fn update_cache_loop(state: Arc<AppState>, sender: Sender<()>) {
 	tokio::spawn(async move {
 		let mut s = Some(sender);
 		loop {
-			pull_vromf_to_cache(state.clone(), None).await.unwrap();
+			let e = pull_vromf_to_cache(state.clone(), None).await.err();
+			if let Some(e) = e {
+				error!("Failed to pull latest vromfs to cache. Reason: {}", e.1);
+			}
 			if let Some(s) = s.take() {
-				s.send(()).unwrap();
+				s.send(()).expect("main vromf thread to run");
 			}
 
 			sleep(Duration::from_secs(120)).await;
