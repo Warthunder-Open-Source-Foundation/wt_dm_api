@@ -8,7 +8,7 @@ mod wait_ready;
 
 use std::{process::abort, sync::Arc, time::Duration};
 
-use axum::{routing::get, Router};
+use axum::{response::Redirect, routing::get, Router};
 use octocrab::Octocrab;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use tokio::{
@@ -60,6 +60,10 @@ async fn main() {
 
 	// See the routing_docs folder for more details on the router
 	let app = Router::new()
+		.route(
+			"/uptime",
+			get(|| async { Redirect::permanent("https://uk.lkl.lol/status/wt-dm-api") }),
+		)
 		.route("/latest/*vromf", get(get_latest))
 		.route("/metadata/latest", get(print_latest_version))
 		.route("/files/*path", get(get_files))
