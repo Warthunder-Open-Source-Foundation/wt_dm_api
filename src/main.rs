@@ -62,7 +62,7 @@ async fn main() {
 	let app = Router::new()
 		.route(
 			"/uptime",
-			get(|| async { Redirect::permanent("https://uk.lkl.lol/status/wt-dm-api") }),
+			get(|| async { Redirect::to("https://uk.lkl.lol/status/wt-dm-api") }),
 		)
 		.route("/latest/*vromf", get(get_latest))
 		.route("/metadata/latest", get(print_latest_version))
