@@ -3,19 +3,18 @@ use std::{sync::Arc, time::Duration};
 use moka::future::{Cache, CacheBuilder};
 use octocrab::Octocrab;
 use rayon::{ThreadPool, ThreadPoolBuilder};
-use tokio::{
-	sync::{
-		oneshot::{channel, Sender},
-		Mutex,
-	},
-	task::spawn_blocking,
+use tokio::sync::{
+	oneshot::{channel, Sender},
+	Mutex,
 };
 
 use crate::{
+	endpoints::{
+		files::{FileRequest, UnpackedVromfs},
+		get_vromfs::VromfCache,
+	},
 	error::ApiError,
 	eyre_error_translation::EyreToApiError,
-	files::{FileRequest, UnpackedVromfs},
-	get_vromfs::VromfCache,
 };
 
 pub struct AppState {

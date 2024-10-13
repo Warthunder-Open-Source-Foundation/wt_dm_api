@@ -10,7 +10,7 @@ http = "1.1.0"
 serde = { version = "1.0.210", features = ["derive"] }
 tokio = { version = "1.40.0", features = ["rt-multi-thread", "sync", "signal"] }
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-axum = "0.7.6"
+axum = { version = "0.7.7", features = ["json"] }
 octocrab = "0.40.0"
 wt_version = "0.1.1"
 reqwest = { version = "0.12.8", features = ["rustls-tls"], default-features = false }
@@ -32,6 +32,7 @@ console-subscriber = { version = "0.4.0", optional = true }
 rayon = "1.10.0"
 futures = { version = "0.3.31", features = ["thread-pool"] }
 moka = { version = "0.12.8", features = ["future"] }
+time = "0.3.36"
 
 [profile.dev]
 #opt-level = 2

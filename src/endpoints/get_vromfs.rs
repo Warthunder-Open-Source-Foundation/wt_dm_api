@@ -144,7 +144,7 @@ pub async fn pull_vromf_to_cache(
 			{
 				use std::fs;
 				info!("Wrote cache to disk");
-				let _ = fs::create_dir("target/vromf_cache");
+				let _ = fs::create_dir("../../target/vromf_cache");
 				for (vromf, b) in state
 					.vromf_cache
 					.elems
@@ -293,7 +293,7 @@ pub async fn print_latest_version(State(state): State<Arc<AppState>>) -> String 
 	state.vromf_cache.latest_known_version().to_string()
 }
 
-static CACHED_SHAS: &str = include_str!("../assets/commits.txt");
+static CACHED_SHAS: &str = include_str!("../../assets/commits.txt");
 fn cached_shas() -> DashMap<Version, String> {
 	CACHED_SHAS
 		.lines()

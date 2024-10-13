@@ -1,14 +1,17 @@
 mod app_state;
+mod endpoints;
 mod error;
 mod eyre_error_translation;
-mod files;
-mod get_vromfs;
 mod vromf_enum;
 mod wait_ready;
 
 use std::{process::abort, sync::Arc, time::Duration};
 
 use axum::{response::Redirect, routing::get, Router};
+use endpoints::{
+	files::{Params, __path_get_files, get_files, FileRequest, UnpackedVromfs},
+	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},
+};
 use octocrab::Octocrab;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use tokio::{
@@ -24,13 +27,15 @@ use utoipa_scalar::{Scalar, Servable};
 
 use crate::{
 	app_state::AppState,
-	files::{Params, __path_get_files, get_files, FileRequest, UnpackedVromfs},
-	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},
+	endpoints::health::{__path_health, health},
 	wait_ready::WaitReady,
 };
 
 #[derive(OpenApi)]
-#[openapi(paths(get_files), info(title = "WT Datamining API", version = "1.0"))]
+#[openapi(
+	paths(get_files, health),
+	info(title = "WT Datamining API", version = "1.0")
+)]
 struct ApiDoc;
 
 #[tokio::main]
@@ -63,6 +68,7 @@ async fn main() {
 		.route("/latest/*vromf", get(get_latest))
 		.route("/metadata/latest", get(print_latest_version))
 		.route("/files/*path", get(get_files))
+		.route("/health", get(health))
 		.merge(Scalar::with_url("/docs", ApiDoc::openapi()))
 		.with_state(state.clone());
 

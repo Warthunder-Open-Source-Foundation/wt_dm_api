@@ -1,4 +1,4 @@
-use std::{path::Path as StdPath, str::FromStr, sync::Arc, time::Instant};
+use std::{path::Path as StdPath, str::FromStr, sync::Arc};
 
 use axum::{
 	body::Body,
@@ -9,16 +9,15 @@ use dashmap::DashMap;
 use http::StatusCode;
 use serde::Deserialize;
 use strum::VariantArray;
-use tokio::task::spawn_blocking;
 use utoipa::{IntoParams, ToSchema};
 use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker, ZipFormat};
 use wt_version::Version;
 
 use crate::{
 	app_state::AppState,
+	endpoints::get_vromfs::fetch_vromf,
 	error::ApiError,
 	eyre_error_translation::{EyreToApiError, OptionToApiError},
-	get_vromfs::fetch_vromf,
 	vromf_enum::VromfType,
 };
 
