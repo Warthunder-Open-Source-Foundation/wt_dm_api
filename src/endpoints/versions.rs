@@ -14,9 +14,14 @@ use crate::{app_state::AppState, error::ApiError, eyre_error_translation::EyreTo
 )]
 pub async fn list_versions(State(state): State<Arc<AppState>>) -> ApiError<String> {
 	let mut res = String::new();
-	let vers = state.vromf_cache.list_versions();
+	let mut vers = state
+		.vromf_cache
+		.list_versions()
+		.map(|e| *e.key())
+		.collect::<Vec<_>>();
+	vers.sort_unstable_by(|a, b| b.cmp(a));
 	for v in vers {
-		writeln!(res, "{}", v.key()).convert_err()?;
+		writeln!(res, "{v}").convert_err()?;
 	}
 	Ok(res)
 }
