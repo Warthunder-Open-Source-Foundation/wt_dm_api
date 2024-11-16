@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{env, sync::Arc, time::Duration};
 
 use moka::future::{Cache, CacheBuilder};
 use octocrab::Octocrab;
@@ -36,10 +36,14 @@ impl Default for AppState {
 				.build()
 				.unwrap(/*fine*/),
 		);
+		let mut octocrab = Octocrab::builder();
+		if let Ok(tok) = env::var("GH_TOKEN") {
+			octocrab = octocrab.personal_token(tok);
+		}
 
 		Self {
 			vromf_cache: Default::default(),
-			octocrab: Default::default(),
+			octocrab: Mutex::new(octocrab.build().unwrap()),
 			unpacked_vromfs: Default::default(),
 			worker_pool,
 			files_cache: CacheBuilder::new(100)

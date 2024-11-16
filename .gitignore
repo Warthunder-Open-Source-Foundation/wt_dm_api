@@ -2,5 +2,6 @@
 dist
 .dioxus
 .env
+.envrc
 cache
 .idea

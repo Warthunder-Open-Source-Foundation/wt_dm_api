@@ -1,8 +1,16 @@
-use std::{collections::HashMap, num::NonZeroUsize, str::FromStr, sync::Arc, time::Duration};
+use std::{
+	collections::HashMap,
+	env,
+	env::current_exe,
+	num::NonZeroUsize,
+	str::FromStr,
+	sync::Arc,
+	time::Duration,
+};
 
 use arc_swap::ArcSwap;
 use axum::extract::{Path, State};
-use dashmap::DashMap;
+use dashmap::{mapref::multiple::RefMulti, DashMap};
 use http::StatusCode;
 use octocrab::Octocrab;
 use strum::VariantArray;
@@ -43,6 +51,10 @@ impl VromfCache {
 
 	pub fn set_latest_known_version(&self, v: Version) {
 		self.latest_known_version.swap(Arc::new(v));
+	}
+
+	pub fn list_versions(&self) -> impl Iterator<Item = RefMulti<'_, Version, String>> {
+		self.commit_pages.iter()
 	}
 }
 
@@ -118,11 +130,17 @@ pub async fn pull_vromf_to_cache(
 
 			#[cfg(feature = "dev-cache")]
 			{
+				let out_dir = env::current_dir()
+					.unwrap()
+					.join("target/vromf_cache")
+					.to_str()
+					.unwrap()
+					.to_string();
 				use std::fs;
 				let mut cache_intact = true;
 				let mut files = vec![];
 				for vromf in VromfType::VARIANTS {
-					if let Ok(f) = fs::read(format!("target/vromf_cache/{vromf}.{version}")) {
+					if let Ok(f) = fs::read(format!("{out_dir}/{vromf}.{version}")) {
 						files.push((*vromf, f));
 					} else {
 						cache_intact = false;
@@ -142,9 +160,15 @@ pub async fn pull_vromf_to_cache(
 
 			#[cfg(feature = "dev-cache")]
 			{
+				let out_dir = env::current_dir()
+					.unwrap()
+					.join("target/vromf_cache")
+					.to_str()
+					.unwrap()
+					.to_string();
 				use std::fs;
 				info!("Wrote cache to disk");
-				let _ = fs::create_dir("../../target/vromf_cache");
+				fs::create_dir_all(&out_dir).unwrap();
 				for (vromf, b) in state
 					.vromf_cache
 					.elems
@@ -152,7 +176,7 @@ pub async fn pull_vromf_to_cache(
 					.unwrap(/*fine*/)
 					.iter()
 				{
-					fs::write(format!("target/vromf_cache/{vromf}.{version}"), b).unwrap(/*fine*/)
+					fs::write(format!("{out_dir}/{vromf}.{version}"), b).unwrap(/*fine*/)
 				}
 			}
 

@@ -27,13 +27,16 @@ use utoipa_scalar::{Scalar, Servable};
 
 use crate::{
 	app_state::AppState,
-	endpoints::health::{__path_health, health},
+	endpoints::{
+		health::{__path_health, health},
+		versions::{__path_list_versions, list_versions},
+	},
 	wait_ready::WaitReady,
 };
 
 #[derive(OpenApi)]
 #[openapi(
-	paths(get_files, health),
+	paths(get_files, health, list_versions),
 	info(title = "WT Datamining API", version = "1.0")
 )]
 struct ApiDoc;
@@ -69,6 +72,7 @@ async fn main() {
 		.route("/metadata/latest", get(print_latest_version))
 		.route("/files/*path", get(get_files))
 		.route("/health", get(health))
+		.route("/metadata/versions", get(list_versions))
 		.merge(Scalar::with_url("/docs", ApiDoc::openapi()))
 		.with_state(state.clone());
 
