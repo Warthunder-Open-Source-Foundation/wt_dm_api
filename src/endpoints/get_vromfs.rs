@@ -235,7 +235,7 @@ async fn find_version_sha(
 
 	// Consult LUT for ancient vromfs
 	if let Some(res) = cache.commit_pages.get(&v.unwrap_or(latest_known_version)) {
-		*v = Some(latest_known_version);
+		*v = Some(*res.key());
 		return Ok(res.clone());
 	}
 
