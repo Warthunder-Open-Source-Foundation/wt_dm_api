@@ -164,7 +164,10 @@ impl FileRequest {
 					if let Ok(v) = VromfType::from_str(path) {
 						(v, "/".to_owned())
 					} else {
-						return Err((StatusCode::NOT_FOUND, format!("Vromf not found: {}", path)));
+						return Err((
+							StatusCode::NOT_FOUND,
+							format!("Vromf doesnt exist: {}", path),
+						));
 					}
 				},
 				Some(e) => (VromfType::from_str(e.0).convert_err()?, e.1.to_owned()),

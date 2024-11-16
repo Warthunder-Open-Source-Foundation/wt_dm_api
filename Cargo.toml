@@ -38,6 +38,7 @@ time = "0.3.36"
 #opt-level = 2
 
 [features]
-dev = ["dev-cache"]
+dev = ["dev-cache", "debug-err"]
+debug-err = []
 dev-cache = []
 tokio-console = ["console-subscriber"]
