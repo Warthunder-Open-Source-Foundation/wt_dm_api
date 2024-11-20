@@ -53,6 +53,12 @@ impl VromfCache {
 		self.latest_known_version.swap(Arc::new(v));
 	}
 
+	pub fn update_when_latest(&self, v: Version) {
+		if v > **self.latest_known_version.load() {
+			self.latest_known_version.swap(Arc::new(v));
+		}
+	}
+
 	pub fn list_versions(&self) -> impl Iterator<Item = RefMulti<'_, Version, String>> {
 		self.commit_pages.iter()
 	}
