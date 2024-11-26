@@ -40,9 +40,16 @@ impl UnpackedVromfs {
 						.get(&(req.version, vromf))
 						.convert_err("cache unpacker did not insert requested vromf")?;
 
-					let res = unpacker
-						.unpack_one(StdPath::new(&req.path), req.unpack_format, true)
-						.convert_err()?;
+					let res = unpacker.unpack_one(StdPath::new(&req.path), req.unpack_format, true);
+					if let Err(e) = &res {
+						// TODO: patch wt_blk so that this works via type downcasting
+						let cause = e.root_cause().to_string();
+						if cause.ends_with("not found in VROMF") {
+							return Err((StatusCode::NOT_FOUND, cause));
+						}
+					}
+
+					let res = res.convert_err()?;
 					Ok(res)
 				};
 				s.send(res()).expect("channel to remain open after work");
