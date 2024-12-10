@@ -324,6 +324,7 @@ pub async fn print_latest_version(State(state): State<Arc<AppState>>) -> String 
 }
 
 static CACHED_SHAS: &str = include_str!("../../assets/commits.txt");
+const EARLIEST_VERSION: Version = Version::new(2, 27, 2, 20);
 fn cached_shas() -> DashMap<Version, String> {
 	CACHED_SHAS
 		.lines()
@@ -335,5 +336,6 @@ fn cached_shas() -> DashMap<Version, String> {
 				sha.to_string(),
 			)
 		})
+		.filter(|&(v, _)| v >= EARLIEST_VERSION)
 		.collect()
 }

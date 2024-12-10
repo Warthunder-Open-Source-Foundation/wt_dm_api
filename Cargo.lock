@@ -2735,9 +2735,9 @@ dependencies = [
 
 [[package]]
 name = "wt_version"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02c723540e4d4c48a95d8aaa658ff3a485e9967af2db40d9c5bfa8c0841c0cfc"
+checksum = "673dcd45668978fe1c38a1be43a327b99262fcebb7ad62cfb78ffeaa0786905e"
 dependencies = [
  "serde",
 ]
