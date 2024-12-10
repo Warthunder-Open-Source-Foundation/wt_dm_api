@@ -4,7 +4,7 @@ use std::{
 	env::current_exe,
 	num::NonZeroUsize,
 	str::FromStr,
-	sync::Arc,
+	sync::{Arc, OnceLock},
 	time::Duration,
 };
 
@@ -12,6 +12,7 @@ use arc_swap::ArcSwap;
 use axum::extract::{Path, State};
 use dashmap::{mapref::multiple::RefMulti, DashMap};
 use http::StatusCode;
+use moka::ops::compute::Op;
 use octocrab::Octocrab;
 use strum::VariantArray;
 use tokio::{
@@ -127,7 +128,7 @@ pub async fn pull_vromf_to_cache(
 
 	let mut octo = state.octocrab.lock().await;
 	let get_latest = version.is_none();
-	let sha = find_version_sha(state.clone(), &mut version, &mut octo).await?;
+	let sha = find_version_sha(state.clone(), &mut version, &mut octo, Some(60)).await?;
 	let version = version.convert_err("Version was not set by find_version_sha")?;
 	if get_latest {
 		if version > state.vromf_cache.latest_known_version() {
@@ -232,10 +233,12 @@ async fn get_vromfs(sha: &str, octo: &mut Octocrab) -> ApiError<HashMap<VromfTyp
 	Ok(reqs)
 }
 
-async fn find_version_sha(
+pub async fn find_version_sha(
 	state: Arc<AppState>,
 	v: &mut Option<Version>,
 	octo: &mut Octocrab,
+	// Set to none when performing unbounded cache warmup
+	check_limit: Option<u64>,
 ) -> ApiError<String> {
 	let cache = &state.vromf_cache;
 	let latest_known_version = cache.latest_known_version();
@@ -283,8 +286,18 @@ async fn find_version_sha(
 				return Ok(commit.sha);
 			}
 			checks += 1;
-			if checks > 60 {
-				break 'outer;
+			if let Some(check_limit) = check_limit {
+				if checks > check_limit {
+					break 'outer;
+				}
+			}
+			if parsed <= *LATEST_MAPPED.get().unwrap(/*fine*/) {
+				// Make an exception for unbounded check, in this case, we have reached our goal
+				if check_limit.is_some() {
+					break 'outer;
+				} else {
+					return Ok(commit.sha);
+				}
 			}
 		}
 	}
@@ -292,14 +305,13 @@ async fn find_version_sha(
 		if v > latest_known_version {
 			return Err((
 				StatusCode::BAD_REQUEST,
-				"Exceeded 60 searched versions into history. This version seems too new to exist"
-					.to_string(),
+				format!("Exceeded {check_limit:?} searched versions into history. This version seems too new to exist"),
 			));
 		}
 	}
 	Err((
 		StatusCode::BAD_REQUEST,
-		"Exceeded 60 searched versions into history. Are you sure this version exists?".to_string(),
+		format!("Exceeded {check_limit:?} searched versions into history. Are you sure this version exists?"),
 	))
 }
 
@@ -326,8 +338,9 @@ pub async fn print_latest_version(State(state): State<Arc<AppState>>) -> String 
 
 static CACHED_SHAS: &str = include_str!("../../assets/commits.txt");
 const EARLIEST_VERSION: Version = Version::new(2, 27, 2, 20);
+static LATEST_MAPPED: OnceLock<Version> = OnceLock::new();
 fn cached_shas() -> DashMap<Version, String> {
-	CACHED_SHAS
+	let it: DashMap<Version, String> = CACHED_SHAS
 		.lines()
 		.map(|e| e.split(" "))
 		.map(|mut e| (e.next().unwrap(/*fine*/), e.next().unwrap(/*fine*/)))
@@ -338,5 +351,11 @@ fn cached_shas() -> DashMap<Version, String> {
 			)
 		})
 		.filter(|&(v, _)| v >= EARLIEST_VERSION)
-		.collect()
+		.collect();
+
+	{
+		let max = it.iter().max_by_key(|e| *e.key()).unwrap();
+		LATEST_MAPPED.set(*max.key()).unwrap();
+	}
+	it
 }

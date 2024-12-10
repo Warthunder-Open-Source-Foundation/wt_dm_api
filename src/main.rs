@@ -24,10 +24,12 @@ use tracing::{error, level_filters::LevelFilter, log::info};
 use tracing_subscriber::{fmt, EnvFilter};
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
+use wt_version::Version;
 
 use crate::{
 	app_state::AppState,
 	endpoints::{
+		get_vromfs::find_version_sha,
 		health::{__path_health, health},
 		versions::{__path_list_versions, list_versions},
 	},
@@ -79,7 +81,19 @@ async fn main() {
 	// run our app with hyper, listening globally on port 3000
 	let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap(/*fine*/);
 
-	update_cache_loop(state, wait_ready.register().await);
+	update_cache_loop(state.clone(), wait_ready.register().await);
+
+	// Ensure the commit cache is filled from the latest version to the latest in assets/commits.txt
+	let mut octo = state.octocrab.lock().await;
+	find_version_sha(
+		state.clone(),
+		&mut Some(Version::new(u16::MAX, u16::MAX, u16::MAX, u16::MAX)),
+		&mut octo,
+		None,
+	)
+	.await
+	.unwrap();
+	drop(octo);
 
 	wait_ready.wait_ready().await;
 	info!("Wait ready completed. Starting server...");
