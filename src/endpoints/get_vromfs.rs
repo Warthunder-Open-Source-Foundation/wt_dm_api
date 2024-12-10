@@ -196,6 +196,7 @@ pub async fn pull_vromf_to_cache(
 			state.vromf_cache.elems.insert(version, vromfs);
 		}
 	}
+	state.vromf_cache.commit_pages.insert(version, sha);
 	Ok(())
 }
 
