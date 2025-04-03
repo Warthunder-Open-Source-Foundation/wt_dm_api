@@ -30,34 +30,22 @@ use crate::{
 };
 
 pub struct VromfCache {
-	elems:                DashMap<Version, HashMap<VromfType, Vec<u8>>>,
-	latest_known_version: ArcSwap<Version>,
-	commit_pages:         DashMap<Version, String>,
+	elems:        DashMap<Version, HashMap<VromfType, Vec<u8>>>,
+	commit_pages: DashMap<Version, String>,
 }
 
 impl Default for VromfCache {
 	fn default() -> Self {
 		Self {
-			elems:                DashMap::new(),
-			latest_known_version: ArcSwap::new(Arc::new(Version::from_u64(0))),
-			commit_pages:         cached_shas(),
+			elems:        DashMap::new(),
+			commit_pages: cached_shas(),
 		}
 	}
 }
 
 impl VromfCache {
 	pub fn latest_known_version(&self) -> Version {
-		**self.latest_known_version.load()
-	}
-
-	pub fn set_latest_known_version(&self, v: Version) {
-		self.latest_known_version.swap(Arc::new(v));
-	}
-
-	pub fn update_when_latest(&self, v: Version) {
-		if v > **self.latest_known_version.load() {
-			self.latest_known_version.swap(Arc::new(v));
-		}
+		self.list_versions().map(|e| *e.key()).max().unwrap()
 	}
 
 	pub fn list_versions(&self) -> impl Iterator<Item = RefMulti<'_, Version, String>> {
@@ -133,7 +121,6 @@ pub async fn pull_vromf_to_cache(
 	if get_latest {
 		if version > state.vromf_cache.latest_known_version() {
 			info!("Found newer version: {version}");
-			state.vromf_cache.set_latest_known_version(version);
 
 			#[cfg(feature = "dev-cache")]
 			{
@@ -268,10 +255,10 @@ pub async fn find_version_sha(
 			.send()
 			.await
 			.convert_err()?;
-		let map = &state.vromf_cache.commit_pages;
+		let commit_pages = &state.vromf_cache.commit_pages;
 		for commit in res {
 			let parsed = Version::from_str(&commit.commit.message).convert_err()?;
-			map.insert(parsed, commit.sha.clone());
+			commit_pages.insert(parsed, commit.sha.clone());
 
 			// Searching for version
 			if let Some(v) = *v {
@@ -313,23 +300,6 @@ pub async fn find_version_sha(
 		StatusCode::BAD_REQUEST,
 		format!("Exceeded {check_limit:?} searched versions into history. Are you sure this version exists?"),
 	))
-}
-
-pub fn update_cache_loop(state: Arc<AppState>, sender: Sender<()>) {
-	tokio::spawn(async move {
-		let mut s = Some(sender);
-		loop {
-			let e = pull_vromf_to_cache(state.clone(), None).await.err();
-			if let Some(e) = e {
-				error!("Failed to pull latest vromfs to cache. Reason: {}", e.1);
-			}
-			if let Some(s) = s.take() {
-				s.send(()).expect("main vromf thread to run");
-			}
-
-			sleep(Duration::from_secs(120)).await;
-		}
-	});
 }
 
 pub async fn print_latest_version(State(state): State<Arc<AppState>>) -> String {

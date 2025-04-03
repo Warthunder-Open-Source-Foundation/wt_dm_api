@@ -5,12 +5,17 @@ mod eyre_error_translation;
 mod vromf_enum;
 mod wait_ready;
 
-use std::{process::abort, sync::Arc, time::Duration};
+use std::{
+	process::{abort, exit},
+	sync::Arc,
+	time::Duration,
+};
 
+use app_state::cache_refresh_task;
 use axum::{response::Redirect, routing::get, Router};
 use endpoints::{
 	files::{Params, __path_get_files, get_files, FileRequest, UnpackedVromfs},
-	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},
+	get_vromfs::{get_latest, print_latest_version, VromfCache},
 };
 use octocrab::Octocrab;
 use rayon::{ThreadPool, ThreadPoolBuilder};
@@ -58,10 +63,9 @@ async fn main() {
 	let t = spawn(async {
 		signal::ctrl_c().await.unwrap(/*fine*/);
 		error!("Got CTRL-C signal. Aborting in 1000ms");
-		#[cfg(not(debug_assertions))]
 		sleep(Duration::from_millis(1000)).await;
 		error!("Aborting after CTRL-C...");
-		abort();
+		exit(1);
 	});
 
 	let mut wait_ready = WaitReady::new();
@@ -81,7 +85,7 @@ async fn main() {
 	// run our app with hyper, listening globally on port 3000
 	let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap(/*fine*/);
 
-	update_cache_loop(state.clone(), wait_ready.register().await);
+	cache_refresh_task(state.clone(), wait_ready.register().await);
 
 	// Ensure the commit cache is filled from the latest version to the latest in assets/commits.txt
 	let mut octo = state.octocrab.lock().await;

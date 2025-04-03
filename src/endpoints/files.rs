@@ -169,7 +169,7 @@ impl FileRequest {
 				// Means the entire vromf is requested, as long as its valid
 				None => {
 					if let Ok(v) = VromfType::from_str(path) {
-						(v, "/".to_owned())
+						(v, "".to_owned())
 					} else {
 						return Err((
 							StatusCode::NOT_FOUND,

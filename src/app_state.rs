@@ -3,14 +3,19 @@ use std::{env, sync::Arc, time::Duration};
 use moka::future::{Cache, CacheBuilder};
 use octocrab::Octocrab;
 use rayon::{ThreadPool, ThreadPoolBuilder};
-use tokio::sync::{
-	oneshot::{channel, Sender},
-	Mutex,
+use tokio::{
+	sync::{
+		oneshot::{channel, Sender},
+		Mutex,
+	},
+	time::sleep,
 };
+use tracing::{error, info};
 
 use crate::{
 	endpoints::{
 		files::{FileRequest, UnpackedVromfs},
+		get_vromfs,
 		get_vromfs::VromfCache,
 	},
 	error::ApiError,
@@ -47,7 +52,7 @@ impl Default for AppState {
 			unpacked_vromfs: Default::default(),
 			worker_pool,
 			files_cache: CacheBuilder::new(100)
-				.time_to_idle(Duration::from_secs(60 * 60)) // 😡😡😡😡😡 https://github.com/rust-lang/rust/issues/120301
+				.time_to_live(Duration::from_secs(60)) // 😡😡😡😡😡 https://github.com/rust-lang/rust/issues/120301
 				.build(),
 		}
 	}
@@ -62,4 +67,26 @@ impl AppState {
 		self.worker_pool.spawn(|| f(s));
 		r.await.convert_err()
 	}
+}
+
+pub fn cache_refresh_task(state: Arc<AppState>, sender: Sender<()>) {
+	tokio::spawn(async move {
+		let mut s = Some(sender);
+		loop {
+			{
+				let e = get_vromfs::pull_vromf_to_cache(state.clone(), None)
+					.await
+					.err();
+				if let Some(e) = e {
+					error!("Failed to pull latest vromfs to cache. Reason: {}", e.1);
+				}
+			}
+
+			if let Some(s) = s.take() {
+				s.send(()).expect("main vromf thread to run");
+			}
+			info!("Updated vromfs to cache job");
+			sleep(Duration::from_secs(120)).await;
+		}
+	});
 }
