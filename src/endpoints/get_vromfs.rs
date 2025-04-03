@@ -244,10 +244,9 @@ pub async fn find_version_sha(
 	}
 	// Else we look for newer versions than we currently know
 
-	let mut page: u32 = 1;
 	let mut checks = 0;
 	info!("Fetching SHAs from github for version: {v:?}");
-	'outer: loop {
+	'outer: for page in 1_u32.. {
 		let res = octo
 			.repos("gszabi99", "War-Thunder-Datamine")
 			.list_commits()
@@ -293,7 +292,6 @@ pub async fn find_version_sha(
 				break 'outer;
 			}
 		}
-		page += 1;
 	}
 	if let Some(v) = *v {
 		if v > latest_known_version {
