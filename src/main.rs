@@ -2,12 +2,14 @@ mod app_state;
 mod endpoints;
 mod error;
 mod eyre_error_translation;
+mod middleware;
+mod unpacking;
 mod vromf_enum;
 mod wait_ready;
 
 use std::{process::abort, sync::Arc, time::Duration};
 
-use axum::{response::Redirect, routing::get, Router};
+use axum::{handler::Handler, response::Redirect, routing::get, Router};
 use endpoints::{
 	files::{Params, __path_get_files, get_files, FileRequest, UnpackedVromfs},
 	get_vromfs::{get_latest, print_latest_version, update_cache_loop, VromfCache},

@@ -30,9 +30,8 @@ use crate::{
 };
 
 pub struct VromfCache {
-	elems:                DashMap<Version, HashMap<VromfType, Vec<u8>>>,
-	latest_known_version: ArcSwap<Version>,
-	commit_pages:         DashMap<Version, String>,
+	elems:        DashMap<Version, HashMap<VromfType, Vec<u8>>>,
+	commit_pages: DashMap<Version, String>,
 }
 
 impl Default for VromfCache {

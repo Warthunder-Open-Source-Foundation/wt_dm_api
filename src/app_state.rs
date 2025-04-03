@@ -15,17 +15,14 @@ use crate::{
 	},
 	error::ApiError,
 	eyre_error_translation::EyreToApiError,
+	unpacking::Vromfs,
 };
 
 pub struct AppState {
-	// Contains binary VROMFs requested from github
-	pub vromf_cache:     VromfCache,
-	pub octocrab:        Mutex<Octocrab>,
-	// Initialized unpackers per VROMF
-	pub unpacked_vromfs: UnpackedVromfs,
-	worker_pool:         Arc<ThreadPool>,
+	vromfs:          Vromfs,
+	worker_pool:     Arc<ThreadPool>,
 	// 	Request with content type and data
-	pub files_cache:     Cache<FileRequest, (Vec<u8>, &'static str)>,
+	pub files_cache: Cache<FileRequest, (Vec<u8>, &'static str)>,
 }
 
 impl Default for AppState {
@@ -42,12 +39,10 @@ impl Default for AppState {
 		}
 
 		Self {
-			vromf_cache: Default::default(),
-			octocrab: Mutex::new(octocrab.build().unwrap()),
-			unpacked_vromfs: Default::default(),
+			vromfs: Vromfs::new(octocrab.build().unwrap()),
 			worker_pool,
 			files_cache: CacheBuilder::new(100)
-				.time_to_idle(Duration::from_secs(60 * 60)) // 😡😡😡😡😡 https://github.com/rust-lang/rust/issues/120301
+				.time_to_live(Duration::from_secs(60)) // 😡😡😡😡😡 https://github.com/rust-lang/rust/issues/120301
 				.build(),
 		}
 	}
