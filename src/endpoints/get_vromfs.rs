@@ -19,7 +19,7 @@ use tokio::{
 	sync::{oneshot::Sender, RwLock},
 	time::sleep,
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use wt_version::Version;
 
 use crate::{
@@ -116,7 +116,7 @@ pub async fn pull_vromf_to_cache(
 
 	let mut octo = state.octocrab.lock().await;
 	let get_latest = version.is_none();
-	let sha = find_version_sha(state.clone(), &mut version, &mut octo, Some(60)).await?;
+	let sha = find_version_sha(state.clone(), &mut version, &mut octo, Some(2)).await?;
 	let version = version.convert_err("Version was not set by find_version_sha")?;
 	if get_latest {
 		if version > state.vromf_cache.latest_known_version() {
@@ -225,7 +225,7 @@ pub async fn find_version_sha(
 	v: &mut Option<Version>,
 	octo: &mut Octocrab,
 	// Set to none when performing unbounded cache warmup
-	check_limit: Option<u64>,
+	maximum_pages_request_limit: Option<u64>,
 ) -> ApiError<String> {
 	let cache = &state.vromf_cache;
 	let latest_known_version = cache.latest_known_version();
@@ -256,49 +256,56 @@ pub async fn find_version_sha(
 			.await
 			.convert_err()?;
 		let commit_pages = &state.vromf_cache.commit_pages;
+
 		for commit in res {
 			let parsed = Version::from_str(&commit.commit.message).convert_err()?;
-			commit_pages.insert(parsed, commit.sha.clone());
+			let before = commit_pages.insert(parsed, commit.sha.clone());
+			if before.is_none() {
+				warn!("discovered {parsed}");
+			}
 
-			// Searching for version
+			// If a specific version is desired, then check if we found it
 			if let Some(v) = *v {
 				if v == parsed {
 					return Ok(commit.sha);
-				} else {
-					page += 1;
 				}
-			} else {
-				// Return latest commit
+			}
+			// Otherwise just return whatever is the latest
+			else {
 				*v = Some(parsed);
 				return Ok(commit.sha);
 			}
-			checks += 1;
-			if let Some(check_limit) = check_limit {
-				if checks > check_limit {
-					break 'outer;
-				}
-			}
+
+			// Also check if we have reached the latest statically known version
 			if parsed <= *LATEST_MAPPED.get().unwrap(/*fine*/) {
 				// Make an exception for unbounded check, in this case, we have reached our goal
-				if check_limit.is_some() {
+				if maximum_pages_request_limit.is_some() {
 					break 'outer;
 				} else {
 					return Ok(commit.sha);
 				}
 			}
 		}
+
+		checks += 1;
+		if let Some(check_limit) = maximum_pages_request_limit {
+			if checks > check_limit {
+				break 'outer;
+			}
+		}
+		page += 1;
 	}
 	if let Some(v) = *v {
 		if v > latest_known_version {
 			return Err((
 				StatusCode::BAD_REQUEST,
-				format!("Exceeded {check_limit:?} searched versions into history. This version seems too new to exist"),
+				format!("Exceeded {maximum_pages_request_limit:?} searched versions into history. This version seems too new to exist"),
 			));
 		}
 	}
 	Err((
 		StatusCode::BAD_REQUEST,
-		format!("Exceeded {check_limit:?} searched versions into history. Are you sure this version exists?"),
+		format!("Exceeded {maximum_pages_request_limit:?} searched versions into history. Are you sure this version exists?"),
 	))
 }
 
