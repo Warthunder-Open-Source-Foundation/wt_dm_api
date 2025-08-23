@@ -1,4 +1,8 @@
-use std::{path::Path as StdPath, str::FromStr, sync::Arc};
+use std::{
+	path::{Path as StdPath, PathBuf},
+	str::FromStr,
+	sync::Arc,
+};
 
 use axum::{
 	body::Body,
@@ -10,7 +14,7 @@ use http::StatusCode;
 use serde::Deserialize;
 use strum::VariantArray;
 use utoipa::{IntoParams, ToSchema};
-use wt_blk::vromf::{BlkOutputFormat, File, VromfUnpacker, ZipFormat};
+use wt_blk::vromf::{BlkOutputFormat, File, FileFilter, VromfUnpacker, ZipFormat};
 use wt_version::Version;
 
 use crate::{
@@ -40,7 +44,12 @@ impl UnpackedVromfs {
 						.get(&(req.version, vromf))
 						.convert_err("cache unpacker did not insert requested vromf")?;
 
-					let res = unpacker.unpack_one(StdPath::new(&req.path), req.unpack_format, true);
+					let res = unpacker.unpack_one(
+						StdPath::new(&req.path),
+						req.unpack_format,
+						true,
+						FileFilter::All,
+					);
 					if let Err(e) = &res {
 						// TODO: patch wt_blk so that this works via type downcasting
 						let cause = e.root_cause().to_string();
@@ -75,12 +84,11 @@ impl UnpackedVromfs {
 
 					let res = unpacker
 						.unpack_subfolder_to_zip(
-							&req.path,
-							true,
 							ZipFormat::Uncompressed,
 							req.unpack_format,
 							true,
 							true, // TODO: Set this false when the system is under very high load
+							FileFilter::one_folder(Arc::new(PathBuf::from(&req.path)), true),
 						)
 						.convert_err();
 					Ok(res)

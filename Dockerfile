@@ -1,6 +1,4 @@
-FROM docker.io/rust:1.81 as builder
-
-RUN rustup default nightly
+FROM docker.io/rust:1.89 as builder
 
 WORKDIR /usr/src/app
 
